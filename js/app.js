@@ -499,6 +499,24 @@
       </form></div>`;
   }
 
+  /* ---------- Notes for parents (first days of the season) ---------- */
+  function parentNotesText() {
+    const N = NIP.PARENT_NOTES;
+    return [N.title, N.intro, ''].concat(...N.sections.map(sec => [sec.heading.toUpperCase()].concat(sec.points.map(x => '• ' + x), ['']))).concat([N.closing]).join('\n');
+  }
+  function parentNotesCard() {
+    const N = NIP.PARENT_NOTES;
+    if (!N) return '';
+    return `<div class="card yellow parent-notes" style="margin-bottom:14px">
+      <div class="row between" style="align-items:flex-start"><h2 style="margin:0">Notes for parents</h2>
+        <button class="btn small secondary" data-action="copy" data-text="${esc(parentNotesText())}">Copy text</button></div>
+      <p style="margin:8px 0 4px"><strong>${esc(N.title)}</strong></p>
+      <p class="muted" style="margin:0 0 6px">${esc(N.intro)}</p>
+      ${N.sections.map(sec => `<h3 style="margin:14px 0 4px">${esc(sec.heading)}</h3><ul>${sec.points.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`).join('')}
+      <p style="margin:12px 0 0"><strong>${esc(N.closing)}</strong></p>
+    </div>`;
+  }
+
   /* ---------- Evaluation day ---------- */
   VIEWS.evaluate = function (r) {
     const ag = r.q.ag || S.evalAg || 'U6';
@@ -511,7 +529,9 @@
     if (S.hideDone) list = list.filter(p => status(p, mode).code !== 'competent');
     const newCount = list.filter(p => p.memberStatus === 'new').length;
     return `
-      <div class="page-head"><div><h1>Sign-off</h1><p class="sub">Tap each element as the nipper completes it. A nipper is signed off automatically once every element is ticked.</p></div></div>
+      <div class="page-head"><div><h1>Sign-off</h1><p class="sub">Tap each element as the nipper completes it. A nipper is signed off automatically once every element is ticked.</p></div>
+        <button class="btn ${S.showParents ? 'navy' : 'yellow'}" data-action="toggle-parents" aria-expanded="${!!S.showParents}">${S.showParents ? 'Hide notes for parents' : 'Notes for parents'}</button></div>
+      ${S.showParents ? parentNotesCard() : ''}
       <div class="chips scroll bare" style="margin-bottom:10px">${NIP.AGE_GROUPS.map(a => `<a class="chip ${a === ag ? 'active' : ''}" style="text-decoration:none" href="#/evaluate?ag=${a}">${a}</a>`).join('')}</div>
       <div class="grid-2">
         <div class="stack">
@@ -804,6 +824,7 @@
       case 'try-demo': location.href = location.pathname + '?demo#/'; break;
       case 'exit-demo': location.href = location.pathname + '#/'; break;
       case 'copy': await copyText(d.text); break;
+      case 'toggle-parents': S.showParents = !S.showParents; render(); break;
       case 'install': if (S.installEvt) { S.installEvt.prompt(); try { await S.installEvt.userChoice; } catch (x) { } S.installEvt = null; render(); } break;
       case 'install-dismiss': try { localStorage.setItem('nipperhub-install-dismissed', '1'); } catch (x) { } render(); break;
       case 'signout': S.authMode = 'code'; S.authError = ''; S.denied = false; await store.signOut(); location.hash = '#/'; break;

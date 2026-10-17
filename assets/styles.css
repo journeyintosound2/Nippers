@@ -390,3 +390,5 @@ details.req-ref[open] > summary::after { content: ' ▴'; }
 /* Installed app: no bottom gap under the tab bar */
 @media (display-mode: standalone) { .demo-banner { font-size: .78rem; } }
 .auth-card { overflow-wrap: anywhere; }
+.parent-notes ul { margin: 4px 0 0; padding-left: 20px; }
+.parent-notes li + li { margin-top: 5px; }

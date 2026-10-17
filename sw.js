@@ -10,7 +10,7 @@ const CACHE = 'nipperhub-v1';
 const SHELL = [
   './', './index.html', './manifest.webmanifest',
   './assets/styles.css', './assets/icon.svg',
-  './js/config.js', './js/standards.js', './js/games.js', './js/store.js', './js/app.js',
+  './js/config.js', './js/standards.js', './js/games.js', './js/parent-notes.js', './js/store.js', './js/app.js',
   './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png'
 ];
 
