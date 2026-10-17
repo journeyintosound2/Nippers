@@ -1,14 +1,21 @@
 /* =========================================================================
    Data layer. Two interchangeable back-ends:
-   - FirebaseStore: Firebase Auth (email/password) + Cloud Firestore
-   - DemoStore:     localStorage only (used when FIREBASE_CONFIG is null)
-   Both expose the same API so the UI doesn't care which is in use.
+   - FirebaseStore: Firebase Auth + Cloud Firestore
+   - DemoStore:     localStorage only (add ?demo to the URL)
+
+   LOGIN CODES
+   Staff sign in with a code like "K7QM-4TXA" — no email address needed.
+   Under the hood each code is a Firebase Auth account whose email and
+   password are derived from the code, so it works on the free Spark plan
+   (no Cloud Functions). Admins create codes on the Admin page; switching a
+   code to "Deactivated" removes all access straight away (enforced by the
+   Firestore rules).
    ========================================================================= */
 window.NIP = window.NIP || {};
 
 (function () {
-  const COLLECTIONS = ['participants', 'sessions', 'staff'];
   const FB_VER = '10.12.2';
+  const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // no 0/O, 1/I/L
 
   /* ---------- helpers ---------- */
   function setPath(obj, path, value) {
@@ -23,16 +30,26 @@ window.NIP = window.NIP || {};
   }
   const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
 
+  NIP.normaliseCode = c => String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  NIP.formatCode = c => { const n = NIP.normaliseCode(c); return n.length === 8 ? n.slice(0, 4) + '-' + n.slice(4) : n; };
+  NIP.generateCode = function () {
+    const buf = new Uint32Array(8);
+    (window.crypto || window.msCrypto).getRandomValues(buf);
+    return NIP.formatCode(Array.from(buf, n => ALPHABET[n % ALPHABET.length]).join(''));
+  };
+  function codeError(msg, code) { const e = new Error(msg); e.code = code; return e; }
+
   /* =======================================================================
      DEMO STORE
      ======================================================================= */
   function DemoStore() {
-    const KEY = 'nipperhub-demo-v1';
-    let db = { participants: {}, sessions: {}, staff: {} };
+    const KEY = 'nipperhub-demo-v2';
+    const blank = () => ({ participants: {}, sessions: {}, staff: {}, codes: {}, meta: {} });
+    let db = blank();
     let user = null;
-    const subs = { participants: [], sessions: [], staff: [] };
+    const subs = { participants: [], sessions: [], staff: [], codes: [] };
     const authSubs = [];
-    try { const raw = localStorage.getItem(KEY); if (raw) db = Object.assign(db, JSON.parse(raw)); } catch (e) { /* storage unavailable */ }
+    try { const raw = localStorage.getItem(KEY); if (raw) db = Object.assign(blank(), JSON.parse(raw)); } catch (e) { /* storage unavailable */ }
     try { const u = localStorage.getItem(KEY + '-user'); if (u) user = JSON.parse(u); } catch (e) { }
 
     function persist() { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) { } }
@@ -40,23 +57,38 @@ window.NIP = window.NIP || {};
       const list = Object.entries(db[col]).map(([id, d]) => Object.assign({ id }, d));
       subs[col].forEach(cb => cb(list));
     }
-    function emitAuth() { authSubs.forEach(cb => cb(user, user ? db.staff[user.uid] : null)); }
+    function emitAuth() { authSubs.forEach(cb => cb(user, user ? db.staff[user.uid] || null : null)); }
+    function setUser(u) { user = u; try { u ? localStorage.setItem(KEY + '-user', JSON.stringify(u)) : localStorage.removeItem(KEY + '-user'); } catch (e) { } }
 
     return {
       mode: 'demo',
       async init() { },
-      onAuth(cb) { authSubs.push(cb); setTimeout(() => cb(user, user ? db.staff[user.uid] : null), 0); },
-      async signIn(email, password, name) {
-        if (!email) throw new Error('Enter any email to try the demo.');
-        user = { uid: 'demo-' + email.toLowerCase().replace(/[^a-z0-9]/g, ''), email };
-        if (!db.staff[user.uid]) db.staff[user.uid] = { name: name || email.split('@')[0], email, role: 'admin', createdAt: Date.now() };
-        persist();
-        try { localStorage.setItem(KEY + '-user', JSON.stringify(user)); } catch (e) { }
-        emitAuth(); emit('staff');
+      onAuth(cb) { authSubs.push(cb); setTimeout(() => cb(user, user ? db.staff[user.uid] || null : null), 0); },
+      async signInWithCode(code) {
+        const n = NIP.normaliseCode(code);
+        const hit = Object.entries(db.codes).find(([, c]) => NIP.normaliseCode(c.code) === n);
+        if (!hit) throw codeError('Code not recognised', 'auth/invalid-credential');
+        setUser({ uid: hit[0] });
+        if (db.staff[hit[0]]) db.staff[hit[0]].lastLogin = Date.now();
+        persist(); emitAuth(); emit('staff');
       },
-      async signUp(name, email, password) { return this.signIn(email, password, name); },
-      async resetPassword() { throw new Error('Password reset is not available in demo mode.'); },
-      async signOut() { user = null; try { localStorage.removeItem(KEY + '-user'); } catch (e) { } emitAuth(); },
+      async setupOwner(name) {
+        if (db.meta.owner) throw codeError('Already set up', 'already-setup');
+        const id = 'demo-' + uid(); const code = NIP.generateCode();
+        db.meta.owner = { uid: id };
+        db.staff[id] = { name, role: 'admin', createdAt: Date.now(), lastLogin: Date.now() };
+        db.codes[id] = { code, name, createdAt: Date.now() };
+        persist(); setUser({ uid: id }); emitAuth();
+        return code;
+      },
+      async createCode(name, role) {
+        const id = 'demo-' + uid(); const code = NIP.generateCode();
+        db.staff[id] = { name, role, createdAt: Date.now() };
+        db.codes[id] = { code, name, createdAt: Date.now() };
+        persist(); emit('staff'); emit('codes');
+        return { uid: id, code };
+      },
+      async signOut() { setUser(null); emitAuth(); },
       subscribe(col, cb) {
         subs[col].push(cb);
         setTimeout(() => emit(col), 0);
@@ -68,9 +100,9 @@ window.NIP = window.NIP || {};
         Object.entries(patch).forEach(([k, v]) => setPath(db[col][id], k, v === NIP.DELETE ? undefined : v));
         persist(); emit(col); if (col === 'staff') emitAuth();
       },
-      async remove(col, id) { delete db[col][id]; persist(); emit(col); },
+      async remove(col, id) { delete db[col][id]; persist(); emit(col); if (col === 'staff') emitAuth(); },
       async batchAdd(col, list) { list.forEach(d => { db[col][uid()] = Object.assign({ createdAt: Date.now() }, d); }); persist(); emit(col); },
-      resetDemo() { db = { participants: {}, sessions: {}, staff: user ? { [user.uid]: db.staff[user.uid] } : {} }; persist(); COLLECTIONS.forEach(emit); }
+      resetDemo() { db = blank(); setUser(null); persist(); emitAuth(); }
     };
   }
 
@@ -79,8 +111,10 @@ window.NIP = window.NIP || {};
      ======================================================================= */
   function FirebaseStore(config) {
     let fb = {}, app, auth, fs, currentUser = null;
-    const authSubs = [];
     let staffUnsub = null;
+    const domain = config.authDomain;
+    const emailFor = code => `code-${NIP.normaliseCode(code).toLowerCase()}@${domain}`;
+    const passFor = code => `nh-${NIP.normaliseCode(code)}`;
 
     async function load() {
       const base = `https://www.gstatic.com/firebasejs/${FB_VER}/`;
@@ -95,48 +129,69 @@ window.NIP = window.NIP || {};
       fs = fb.initializeFirestore(app, { localCache: fb.persistentLocalCache({ tabManager: fb.persistentMultipleTabManager() }) });
     }
 
-    /* First person to sign in claims the club (becomes admin). Everyone
-       after that is 'pending' until an admin approves them. */
-    async function ensureStaffDoc(user, name) {
-      const ref = fb.doc(fs, 'staff', user.uid);
-      const snap = await fb.getDoc(ref);
-      if (snap.exists()) return;
-      const ownerRef = fb.doc(fs, 'meta', 'owner');
-      const owner = await fb.getDoc(ownerRef);
-      const profile = { name: name || user.displayName || user.email.split('@')[0], email: user.email, createdAt: Date.now() };
-      if (!owner.exists()) {
-        const batch = fb.writeBatch(fs);
-        batch.set(ownerRef, { uid: user.uid, email: user.email, at: Date.now() });
-        batch.set(ref, Object.assign(profile, { role: 'admin' }));
-        try { await batch.commit(); return; } catch (e) { console.warn('Owner claim failed, registering as pending', e); }
-      }
-      await fb.setDoc(ref, Object.assign(profile, { role: 'pending' }));
-    }
-
     function toFs(v) { return v === NIP.DELETE ? fb.deleteField() : v; }
 
     return {
       mode: 'firebase',
       async init() { await load(); },
       onAuth(cb) {
-        authSubs.push(cb);
-        fb.onAuthStateChanged(auth, async user => {
+        fb.onAuthStateChanged(auth, user => {
           currentUser = user;
           if (staffUnsub) { staffUnsub(); staffUnsub = null; }
           if (!user) { cb(null, null); return; }
-          try { await ensureStaffDoc(user, NIP._pendingName); } catch (e) { console.error(e); }
           staffUnsub = fb.onSnapshot(fb.doc(fs, 'staff', user.uid),
             s => cb(user, s.exists() ? s.data() : null),
             err => { console.error(err); cb(user, null); });
         });
       },
-      async signIn(email, password) { await fb.signInWithEmailAndPassword(auth, email, password); },
-      async signUp(name, email, password) {
-        NIP._pendingName = name;
-        const cred = await fb.createUserWithEmailAndPassword(auth, email, password);
-        if (name) { try { await fb.updateProfile(cred.user, { displayName: name }); } catch (e) { } }
+      async signInWithCode(code) {
+        if (NIP.normaliseCode(code).length !== 8) throw codeError('Codes are 8 characters', 'auth/invalid-credential');
+        const cred = await fb.signInWithEmailAndPassword(auth, emailFor(code), passFor(code));
+        try { await fb.updateDoc(fb.doc(fs, 'staff', cred.user.uid), { lastLogin: Date.now() }); } catch (e) { /* deactivated or missing — UI handles */ }
       },
-      async resetPassword(email) { await fb.sendPasswordResetEmail(auth, email); },
+      /* First-time setup: creates the first admin code and claims the club.
+         The Firestore rules only allow this while meta/owner doesn't exist. */
+      async setupOwner(name) {
+        const code = NIP.generateCode();
+        const cred = await fb.createUserWithEmailAndPassword(auth, emailFor(code), passFor(code));
+        const id = cred.user.uid;
+        const batch = fb.writeBatch(fs);
+        batch.set(fb.doc(fs, 'meta', 'owner'), { uid: id, at: Date.now() });
+        batch.set(fb.doc(fs, 'staff', id), { name, role: 'admin', createdAt: Date.now(), lastLogin: Date.now() });
+        batch.set(fb.doc(fs, 'codes', id), { code, name, createdAt: Date.now() });
+        try { await batch.commit(); }
+        catch (e) {
+          try { await fb.deleteUser(cred.user); } catch (x) { await fb.signOut(auth); }
+          throw codeError('Nipper Hub is already set up', 'already-setup');
+        }
+        return code;
+      },
+      /* Admin creates a code for someone else. A temporary second Firebase
+         app makes the account so the admin stays signed in. */
+      async createCode(name, role) {
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const code = NIP.generateCode();
+          const sec = fb.initializeApp(config, 'creator-' + Date.now() + attempt);
+          const secAuth = fb.initializeAuth(sec, { persistence: fb.inMemoryPersistence });
+          let newUid;
+          try {
+            const cred = await fb.createUserWithEmailAndPassword(secAuth, emailFor(code), passFor(code));
+            newUid = cred.user.uid;
+          } catch (e) {
+            await fb.deleteApp(sec);
+            if (e.code === 'auth/email-already-in-use') continue; // astronomically rare: try another code
+            throw e;
+          }
+          try { await fb.signOut(secAuth); } catch (e) { }
+          await fb.deleteApp(sec);
+          const batch = fb.writeBatch(fs);
+          batch.set(fb.doc(fs, 'staff', newUid), { name, role, createdAt: Date.now(), createdBy: currentUser && currentUser.uid });
+          batch.set(fb.doc(fs, 'codes', newUid), { code, name, createdAt: Date.now() });
+          await batch.commit();
+          return { uid: newUid, code };
+        }
+        throw new Error('Could not create a unique code, try again');
+      },
       async signOut() { await fb.signOut(auth); },
       subscribe(col, cb) {
         return fb.onSnapshot(fb.collection(fs, col),

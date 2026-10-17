@@ -11,7 +11,7 @@
     user: null, me: null, ready: false,
     participants: [], sessions: [], staff: [],
     season: NIP.currentSeason(),
-    authTab: 'signin', authError: '', authInfo: '',
+    authMode: 'code', authError: '', settingUp: false, ownerCode: null, lastCreated: null, codes: [],
     unsubs: [],
     evalDate: today(), evalEnv: 'Pool', evalMode: 'prelim', hideDone: false,
     nipperFilter: { q: '', ag: 'All', status: 'all' },
@@ -186,7 +186,7 @@
     ['home', 'Home', I.home], ['nippers', 'Nippers', I.users], ['evaluate', 'Sign-off', I.check],
     ['sessions', 'Sessions', I.cal], ['games', 'Games', I.flag], ['more', 'More', I.more]
   ];
-  const NAV_GROUP = { nipper: 'nippers', session: 'sessions', game: 'games', safety: 'more', standards: 'more', helpers: 'more', team: 'more' };
+  const NAV_GROUP = { nipper: 'nippers', session: 'sessions', game: 'games', safety: 'more', standards: 'more', helpers: 'more', team: 'more', admin: 'more' };
 
   /* ---------------- render ---------------- */
   let pendingRender = false;
@@ -201,8 +201,9 @@
     pendingRender = false;
     const app = document.getElementById('app');
     if (!S.ready) return;
-    if (!S.user) { app.innerHTML = authView(); return; }
-    if (!S.me || S.me.role === 'pending' || S.me.role === 'removed') { app.innerHTML = pendingView(); return; }
+    if (S.settingUp || S.ownerCode) { app.innerHTML = setupView(); return; }
+    if (!S.user) { app.innerHTML = S.authMode === 'setup' ? setupView() : authView(); return; }
+    if (!S.me || !(S.me.role === 'admin' || S.me.role === 'age_manager')) { app.innerHTML = inactiveView(); return; }
     const r = parseHash();
     const active = NAV_GROUP[r.name] || r.name;
     let body = '';
@@ -213,7 +214,7 @@
         <div class="topbar-inner">
           <a class="brand" href="#/">${I.logo}<span class="brand-text"><span class="brand-name">${esc(C.APP_NAME)}</span><span class="brand-club">${esc(C.CLUB_NAME)}</span></span></a>
           <span class="spacer"></span>
-          <nav class="desk-nav" aria-label="Main">${NAV.map(([k, l]) => `<a href="#/${k === 'home' ? '' : k}" class="${active === k ? 'active' : ''}">${l}</a>`).join('')}</nav>
+          <nav class="desk-nav" aria-label="Main">${NAV.map(([k, l]) => `<a href="#/${k === 'home' ? '' : k}" class="${active === k && r.name !== 'admin' ? 'active' : ''}">${l}</a>`).join('')}${isAdmin() ? `<a href="#/admin" class="${r.name === 'admin' ? 'active' : ''}">Admin</a>` : ''}</nav>
           <label class="visually-hidden" for="season">Season</label>
           <select id="season" class="season-select" data-change="season">${seasonsList().map(s => `<option ${s === S.season ? 'selected' : ''}>${s}</option>`).join('')}</select>
         </div>
@@ -225,39 +226,60 @@
       </nav>`;
   }
 
-  /* ================= AUTH ================= */
+  /* ================= AUTH (login codes) ================= */
+  const bigLogo = () => I.logo.replace('width="40" height="40"', 'width="54" height="54"');
   function authView() {
-    const t = S.authTab;
     return `<div class="auth-wrap"><div class="auth-card">
-      <div class="logo">${I.logo.replace('width="40" height="40"', 'width="54" height="54"')}<div><h1>${esc(C.APP_NAME)}</h1><div class="muted">${esc(C.CLUB_NAME)} · Age Manager portal</div></div></div>
-      <div class="tabs" role="tablist">
-        <button class="${t === 'signin' ? 'active' : ''}" data-action="auth-tab" data-tab="signin">Sign in</button>
-        <button class="${t === 'signup' ? 'active' : ''}" data-action="auth-tab" data-tab="signup">Create account</button>
-      </div>
+      <div class="logo">${bigLogo()}<div><h1>${esc(C.APP_NAME)}</h1><div class="muted">${esc(C.CLUB_NAME)} · Nippers helper</div></div></div>
       ${S.authError ? `<div class="error">${esc(S.authError)}</div>` : ''}
-      ${S.authInfo ? `<div class="note" style="margin-bottom:12px">${esc(S.authInfo)}</div>` : ''}
-      <form data-form="${t === 'reset' ? 'reset' : t}">
-        ${t === 'signup' ? `<label class="field">Your name<input type="text" name="name" autocomplete="name" required></label>` : ''}
-        <label class="field">Email<input type="email" name="email" autocomplete="email" required></label>
-        ${t !== 'reset' ? `<label class="field">Password<input type="password" name="password" autocomplete="${t === 'signup' ? 'new-password' : 'current-password'}" ${store.mode === 'demo' ? '' : 'required minlength="6"'}></label>` : ''}
-        <button class="btn block" type="submit">${t === 'signup' ? 'Create account' : t === 'reset' ? 'Send reset email' : 'Sign in'}</button>
+      <form data-form="code">
+        <label class="field">Your login code
+          <input type="text" name="code" class="code-input" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="XXXX-XXXX" maxlength="9" required></label>
+        <button class="btn block" type="submit">Sign in</button>
       </form>
-      <div class="row between" style="margin-top:12px">
-        ${t === 'signin' ? `<button class="btn ghost" data-action="auth-tab" data-tab="reset">Forgot password?</button>` : t === 'reset' ? `<button class="btn ghost" data-action="auth-tab" data-tab="signin">Back to sign in</button>` : '<span></span>'}
-      </div>
-      <p class="muted" style="font-size:.85rem;margin-top:10px">${store.mode === 'demo'
-        ? 'Demo mode: type any email to look around. Nothing leaves this browser.'
-        : 'New age managers: create an account, then ask a club admin to approve you. The first account created becomes the club admin.'}</p>
+      <p class="muted" style="font-size:.9rem;margin-top:12px">No code yet? Ask your Junior Activities Chair for one.</p>
+      ${store.mode === 'demo' ? '<p class="note">Demo mode: nothing leaves this browser. Use first-time setup to make a demo admin code.</p>' : ''}
+      <hr><button class="btn ghost" data-action="auth-mode" data-v="setup" style="padding-left:0">First-time setup (club admin)</button>
     </div></div>`;
   }
-  function pendingView() {
+  function setupView() {
+    if (S.settingUp) return `<div class="auth-wrap"><div class="auth-card"><div class="logo">${bigLogo()}<h1 style="font-size:1.6rem">Setting up…</h1></div><p class="muted">Creating your admin code.</p></div></div>`;
+    if (S.ownerCode) return `<div class="auth-wrap"><div class="auth-card">
+      <div class="logo">${bigLogo()}<h1 style="font-size:1.6rem">You’re the admin</h1></div>
+      <p>This is <strong>your admin login code</strong>. Write it down or save it in your phone. It’s the only way back in.</p>
+      <div class="code-big">${esc(S.ownerCode)}</div>
+      <div class="btn-row" style="margin:14px 0"><button class="btn secondary" data-action="copy" data-text="${esc(S.ownerCode)}">Copy code</button></div>
+      <p class="muted" style="font-size:.9rem">Next, go to <strong>Admin</strong> to create codes for your age managers.</p>
+      <button class="btn block" data-action="owner-done">I’ve saved it, continue</button>
+    </div></div>`;
     return `<div class="auth-wrap"><div class="auth-card">
-      <div class="logo">${I.logo}<h1 style="font-size:1.6rem">Nearly there</h1></div>
-      <p>Hi ${esc(myName())}, your account is <strong>waiting for approval</strong>.</p>
-      <p class="muted">Ask your Junior Activities Chair (or another club admin) to approve you in <em>More → Team</em>. This page will update automatically.</p>
-      <button class="btn secondary block" data-action="signout">Sign out</button>
+      <div class="logo">${bigLogo()}<div><h1 style="font-size:1.6rem">First-time setup</h1><div class="muted">Do this once, before anyone else signs in.</div></div></div>
+      ${S.authError ? `<div class="error">${esc(S.authError)}</div>` : ''}
+      <form data-form="setup">
+        <label class="field">Your name <span class="hint">Shown as the assessor on sign-offs</span><input type="text" name="name" required autocomplete="name"></label>
+        <button class="btn block" type="submit">Create my admin code</button>
+      </form>
+      <hr><button class="btn ghost" data-action="auth-mode" data-v="code" style="padding-left:0">← Back to sign in</button>
     </div></div>`;
   }
+  function inactiveView() {
+    return `<div class="auth-wrap"><div class="auth-card">
+      <div class="logo">${bigLogo()}<h1 style="font-size:1.6rem">Code not active</h1></div>
+      <p>This login code has been deactivated or isn’t set up yet.</p>
+      <p class="muted">Ask your Junior Activities Chair for a new code.</p>
+      <button class="btn secondary block" data-action="signout">Back to sign in</button>
+    </div></div>`;
+  }
+  async function copyText(t) {
+    try { await navigator.clipboard.writeText(t); toast('Copied'); }
+    catch (e) {
+      const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); toast('Copied'); } catch (x) { prompt('Copy this:', t); }
+      ta.remove();
+    }
+  }
+  const appUrl = () => location.origin + location.pathname.replace(/index\.html$/, '');
+  const inviteText = (name, code) => `Hi ${name}, here’s your ${C.APP_NAME} login code for Nippers: ${code}\nSign in at ${appUrl()}\nKeep it private, it works like a password.`;
 
   /* ================= VIEWS ================= */
   const VIEWS = {};
@@ -705,15 +727,54 @@
       <div class="list" style="margin-top:14px">${list.length ? list.map(p => `<a class="list-item" href="#/helpers/${p.id}"><span class="avatar" style="background:#2E9E4F;color:#fff">${esc(initials(p))}</span><div class="grow"><div class="title">${esc(fullName(p))}</div></div>${statusBadge(status(p, 'nsa'), 'nsa')}</a>`).join('') : '<div class="empty">No helpers added yet.</div>'}</div>`;
   };
 
-  /* ---------- Team / admin ---------- */
-  VIEWS.team = function () {
-    const list = S.staff.slice().sort((a, b) => (a.role === 'pending' ? -1 : 1) - (b.role === 'pending' ? -1 : 1) || (a.name || '').localeCompare(b.name || ''));
-    return `<div class="page-head"><div><h1>Team</h1><p class="sub">${isAdmin() ? 'Approve new age managers and set who is an admin.' : 'Age managers with access to Nipper Hub.'}</p></div></div>
-      <form class="card" data-form="profile" style="margin-bottom:14px"><div class="row"><label class="field" style="flex:1;margin:0">Your display name (shown as assessor)<input type="text" name="name" value="${esc(S.me && S.me.name)}"></label><button class="btn secondary" type="submit" style="align-self:flex-end">Save</button></div></form>
-      <div class="list">${list.map(m => `<div class="list-item"><span class="avatar">${esc((m.name || '?')[0].toUpperCase())}</span>
-        <div class="grow"><div class="title">${esc(m.name || '—')} ${m.id === (S.user && S.user.uid) ? '<span class="badge">You</span>' : ''}</div><div class="meta">${esc(m.email || '')}</div></div>
-        ${isAdmin() && m.id !== S.user.uid ? `<select data-change="role" data-id="${m.id}" style="width:auto;margin:0">${[['pending', 'Pending'], ['age_manager', 'Age manager'], ['admin', 'Admin'], ['removed', 'Removed']].map(([k, l]) => `<option value="${k}" ${m.role === k ? 'selected' : ''}>${l}</option>`).join('')}</select>`
-        : `<span class="badge ${m.role === 'pending' ? 'warn' : m.role === 'admin' ? 'bad' : 'ok'}">${esc((m.role || '').replace('_', ' '))}</span>`}</div>`).join('')}</div>`;
+  /* ---------- Admin: login codes ---------- */
+  function ago(t) {
+    if (!t) return 'never signed in';
+    const m = Math.round((Date.now() - t) / 60000);
+    if (m < 2) return 'signed in just now';
+    if (m < 60) return `signed in ${m} min ago`;
+    if (m < 60 * 24) return `signed in ${Math.round(m / 60)} h ago`;
+    return 'last signed in ' + fmtDate(new Date(t).toLocaleDateString('en-CA'));
+  }
+  const ROLE_LABEL = { admin: 'Admin', age_manager: 'Age manager', removed: 'Deactivated', pending: 'Pending' };
+  VIEWS.team = () => VIEWS.admin();
+  VIEWS.admin = function () {
+    if (!isAdmin()) return `<div class="card empty"><h3>Admins only</h3><p>Ask your Junior Activities Chair if you need access.</p></div>`;
+    const codes = {}; S.codes.forEach(c => { codes[c.id] = c; });
+    const rank = r => r === 'admin' ? 0 : r === 'age_manager' ? 1 : 2;
+    const list = S.staff.slice().sort((a, b) => rank(a.role) - rank(b.role) || (a.name || '').localeCompare(b.name || ''));
+    const active = list.filter(m => m.role === 'admin' || m.role === 'age_manager').length;
+    const lc = S.lastCreated;
+    return `<div class="page-head"><div><h1>Admin · Login codes</h1><p class="sub">${active} active code${active === 1 ? '' : 's'}. Staff type their code on the sign-in page. No email or password needed.</p></div></div>
+      <div class="grid-2">
+        <form class="card flag-top" data-form="new-code"><h2>New login code</h2>
+          <label class="field">Name<input type="text" name="name" required placeholder="e.g. Sarah Lee (U8)"></label>
+          <label class="field">Access
+            <select name="role"><option value="age_manager">Age manager: nippers, sign-offs, sessions, games</option><option value="admin">Admin: everything, plus creating codes</option></select></label>
+          <button class="btn" type="submit">Create code</button>
+        </form>
+        ${lc ? `<div class="card yellow"><h2>Code for ${esc(lc.name)}</h2><div class="code-big">${esc(lc.code)}</div>
+            <p style="margin-top:10px;font-size:.92rem">Send it privately (text or in person). Anyone with the code can sign in.</p>
+            <div class="btn-row"><button class="btn" data-action="copy" data-text="${esc(inviteText(lc.name, lc.code))}">Copy invite message</button><button class="btn secondary" data-action="copy" data-text="${esc(lc.code)}">Copy code</button><button class="btn ghost" data-action="clear-created">Done</button></div></div>`
+        : `<div class="card"><h2>How codes work</h2><ul style="padding-left:20px;margin:0">
+            <li>One code per person, so sign-offs show who assessed each nipper.</li>
+            <li>Codes stay signed in on that phone until they sign out.</li>
+            <li>Someone leaving or a code shared too widely? <strong>Deactivate</strong> it. Access stops straight away.</li>
+            <li>Lost code? Deactivate the old one and create a new one.</li></ul></div>`}
+      </div>
+      <h2 style="margin-top:20px">Codes</h2>
+      <div class="list">${list.map(m => {
+        const me = S.user && m.id === S.user.uid; const c = codes[m.id];
+        const off = !(m.role === 'admin' || m.role === 'age_manager');
+        return `<div class="list-item code-row" style="${off ? 'opacity:.6' : ''}"><span class="avatar">${esc((m.name || '?')[0].toUpperCase())}</span>
+          <div class="grow"><div class="title">${esc(m.name || '—')} ${me ? '<span class="badge">You</span>' : ''}</div>
+            <div class="meta"><span class="mono">${c ? esc(c.code) : '—'}</span> · ${esc(ago(m.lastLogin))}</div></div>
+          <div class="row code-actions" style="gap:6px;justify-content:flex-end">
+            ${c && !off ? `<button class="btn small secondary" data-action="copy" data-text="${esc(inviteText(m.name || '', c.code))}" title="Copy invite message">Copy</button>` : ''}
+            ${me ? `<span class="badge bad">Admin</span>` : `<select data-change="role" data-id="${m.id}" style="width:auto;margin:0;min-height:34px;padding:4px 8px" aria-label="Access for ${esc(m.name)}">${['age_manager', 'admin', 'removed'].map(k => `<option value="${k}" ${m.role === k ? 'selected' : ''}>${ROLE_LABEL[k]}</option>`).join('')}</select>
+              <button class="btn small ghost" data-action="delete-code" data-id="${m.id}" aria-label="Delete ${esc(m.name)}">✕</button>`}
+          </div></div>`;
+      }).join('') || '<div class="empty">No codes yet.</div>'}</div>`;
   };
 
   /* ---------- More ---------- */
@@ -724,9 +785,11 @@
         ${tile('#/standards', I.book, 'Sign-off standards', 'Every age group’s evaluation requirements')}
         ${tile('#/safety', I.life, 'Water safety', 'Ratio calculator, uniforms, SRR bands')}
         ${tile('#/helpers', I.shield, 'Nipper Safety Assistants', 'Track NSA skills maintenance')}
-        ${tile('#/team', I.team, 'Team', isAdmin() ? 'Approve age managers' : 'Who has access')}
+        ${isAdmin() ? tile('#/admin', I.team, 'Admin: login codes', 'Create and manage staff codes') : ''}
       </div>
-      <div class="card" style="margin-top:14px"><div class="row between"><div><strong>${esc(myName())}</strong><div class="muted">${esc(S.user.email || '')} · ${esc((S.me.role || '').replace('_', ' '))}</div></div>
+      <div class="card" style="margin-top:14px">
+        <form data-form="profile" class="row" style="align-items:flex-end"><label class="field" style="flex:1;margin:0">Your name (shown as assessor)<input type="text" name="name" required value="${esc(S.me && S.me.name)}"></label><button class="btn secondary" type="submit">Save</button></form>
+        <div class="row between" style="margin-top:14px"><span class="muted">Signed in as ${esc(ROLE_LABEL[S.me.role] || '')}</span>
         <button class="btn secondary" data-action="signout">${I.out.replace('<svg', '<svg width="18" height="18"')} Sign out</button></div></div>
       ${store.mode === 'demo' ? `<div class="card" style="margin-top:14px"><h3>Demo tools</h3><div class="btn-row"><button class="btn secondary" data-action="seed">Load sample nippers</button><button class="btn ghost" data-action="reset-demo">Reset demo data</button></div></div>` : ''}`;
   };
@@ -738,8 +801,17 @@
     if (el.tagName === 'INPUT') return; // checkboxes handled on change
     e.preventDefault();
     switch (a) {
-      case 'auth-tab': S.authTab = d.tab; S.authError = ''; S.authInfo = ''; render(); break;
-      case 'signout': await store.signOut(); location.hash = '#/'; break;
+      case 'auth-mode': S.authMode = d.v; S.authError = ''; render(); break;
+      case 'owner-done': S.ownerCode = null; S.authMode = 'code'; location.hash = '#/admin'; render(); break;
+      case 'copy': await copyText(d.text); break;
+      case 'clear-created': S.lastCreated = null; render(); break;
+      case 'delete-code': {
+        const m = S.staff.find(x => x.id === d.id);
+        if (m && confirm(`Delete ${m.name || 'this'} code? They will no longer be able to sign in. Their past sign-offs are kept.`)) {
+          await safe(async () => { await store.remove('codes', d.id); await store.remove('staff', d.id); }, 'Code deleted');
+        } break;
+      }
+      case 'signout': S.authMode = 'code'; S.authError = ''; await store.signOut(); location.hash = '#/'; break;
       case 'tick': await toggleItem(d.id, d.std, d.el); break;
       case 'outcome': await setOutcome(d.id, d.std, d.v); break;
       case 'eval-mode': S.evalMode = d.v; render(); break;
@@ -800,6 +872,11 @@
   });
 
   document.addEventListener('input', e => {
+    if (e.target.classList && e.target.classList.contains('code-input')) {
+      const n = NIP.normaliseCode(e.target.value).slice(0, 8);
+      e.target.value = n.length > 4 ? n.slice(0, 4) + '-' + n.slice(4) : n;
+      return;
+    }
     const k = e.target.dataset.input; if (!k) return;
     if (k === 'nq') S.nipperFilter.q = e.target.value;
     if (k === 'gq') S.gameFilter.q = e.target.value;
@@ -815,12 +892,25 @@
     const fd = Object.fromEntries(new FormData(form).entries());
     const kind = form.dataset.form;
     try {
-      if (kind === 'signin' || kind === 'signup' || kind === 'reset') {
-        S.authError = ''; S.authInfo = '';
-        if (kind === 'signin') await store.signIn(fd.email.trim(), fd.password);
-        if (kind === 'signup') await store.signUp(fd.name.trim(), fd.email.trim(), fd.password);
-        if (kind === 'reset') { await store.resetPassword(fd.email.trim()); S.authInfo = 'Check your email for a reset link.'; S.authTab = 'signin'; render(); }
+      if (kind === 'code') {
+        S.authError = '';
+        const btn = form.querySelector('button'); btn.disabled = true; btn.textContent = 'Signing in…';
+        await store.signInWithCode(fd.code);
+        location.hash = '#/';
         return;
+      }
+      if (kind === 'setup') {
+        S.authError = ''; S.settingUp = true; render();
+        try { S.ownerCode = await store.setupOwner(fd.name.trim()); }
+        finally { S.settingUp = false; }
+        render(); return;
+      }
+      if (kind === 'new-code') {
+        const btn = form.querySelector('button[type=submit]'); btn.disabled = true; btn.textContent = 'Creating…';
+        const name = fd.name.trim();
+        try { const r = await store.createCode(name, fd.role); S.lastCreated = { name, code: r.code }; }
+        finally { btn.disabled = false; btn.textContent = 'Create code'; }
+        render(); return;
       }
       if (kind === 'nipper') {
         const data = { firstName: fd.firstName.trim(), lastName: (fd.lastName || '').trim(), dob: fd.dob || '', memberStatus: fd.memberStatus, notes: (fd.notes || '').trim(), kind: 'nipper', active: true };
@@ -857,18 +947,17 @@
       if (kind === 'profile') { await store.update('staff', S.user.uid, { name: fd.name.trim() }); toast('Name updated'); }
     } catch (err) {
       console.error(err);
-      if (/signin|signup|reset/.test(kind)) { S.authError = authMessage(err); render(); }
+      if (kind === 'code' || kind === 'setup') { S.authError = authMessage(err, kind); render(); }
       else toast('Couldn’t save: ' + (err.code || err.message));
     }
   });
 
-  function authMessage(err) {
+  function authMessage(err, kind) {
     const c = err.code || '';
-    if (/invalid-credential|wrong-password|user-not-found/.test(c)) return 'That email and password don’t match. Try again or reset your password.';
-    if (/email-already-in-use/.test(c)) return 'An account already exists for that email. Sign in instead.';
-    if (/weak-password/.test(c)) return 'Password needs to be at least 6 characters.';
-    if (/invalid-email/.test(c)) return 'That email address doesn’t look right.';
-    if (/operation-not-allowed/.test(c)) return 'Email/password sign-in isn’t enabled yet in the Firebase console (Authentication → Sign-in method).';
+    if (/invalid-credential|wrong-password|user-not-found|invalid-email/.test(c)) return 'That code isn’t recognised. Check it and try again (codes look like K7QM-4TXA).';
+    if (/already-setup/.test(c)) return 'Nipper Hub is already set up for this club. Ask your Junior Activities Chair for a login code.';
+    if (/operation-not-allowed|configuration-not-found/.test(c)) return 'Login codes need Email/Password turned on in Firebase (Authentication → Sign-in method → Email/Password).';
+    if (/permission-denied/.test(c)) return 'The database rules haven’t been published yet (Firestore → Rules).';
     if (/too-many-requests/.test(c)) return 'Too many attempts. Wait a minute and try again.';
     if (/unauthorized-domain/.test(c)) return 'This website address isn’t authorised in Firebase (Authentication → Settings → Authorised domains).';
     return err.message || String(err);
@@ -918,9 +1007,9 @@
   /* ================= BOOT ================= */
   window.addEventListener('hashchange', () => { render(); window.scrollTo(0, 0); });
 
-  function startData() {
+  function startData(admin) {
     S.unsubs.forEach(u => u && u()); S.unsubs = [];
-    ['participants', 'sessions', 'staff'].forEach(col => {
+    ['participants', 'sessions', 'staff'].concat(admin ? ['codes'] : []).forEach(col => {
       S.unsubs.push(store.subscribe(col, list => { S[col] = list; scheduleRender(); }));
     });
   }
@@ -932,12 +1021,17 @@
       document.getElementById('app').innerHTML = `<div class="auth-wrap"><div class="auth-card"><h2>Couldn’t connect</h2><p>Firebase didn’t load. Check your internet connection and refresh.</p><p class="muted">${esc(e.message)}</p><p><a href="?demo">Open in demo mode instead</a></p></div></div>`;
       return;
     }
-    let started = false;
+    let started = null; // null = not started, else 'admin' | 'staff'
     store.onAuth((user, me) => {
       S.user = user; S.me = me; S.ready = true;
       const ok = user && me && (me.role === 'admin' || me.role === 'age_manager');
-      if (ok && !started) { started = true; startData(); }
-      if (!ok && started) { started = false; S.unsubs.forEach(u => u && u()); S.unsubs = []; S.participants = []; S.sessions = []; S.staff = []; }
+      const want = ok ? (me.role === 'admin' ? 'admin' : 'staff') : null;
+      if (want !== started) {
+        S.unsubs.forEach(u => u && u()); S.unsubs = [];
+        if (!want) { S.participants = []; S.sessions = []; S.staff = []; S.codes = []; S.lastCreated = null; }
+        else startData(want === 'admin');
+        started = want;
+      }
       render();
     });
   })();

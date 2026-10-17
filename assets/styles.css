@@ -284,3 +284,16 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }
   body { background: #fff; padding: 0; }
   .card, .list { box-shadow: none; border: 1px solid #ccc; }
 }
+
+/* ---------- Login codes ---------- */
+.code-input {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 1.6rem; font-weight: 700;
+  letter-spacing: .16em; text-align: center; text-transform: uppercase;
+}
+.code-big {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 2.2rem; font-weight: 800; letter-spacing: .14em;
+  text-align: center; background: #fff; border: 3px dashed var(--red); border-radius: 14px; padding: 14px 8px; color: var(--ink);
+}
+.mono { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-weight: 700; letter-spacing: .06em; color: var(--ink); }
+.code-row { flex-wrap: wrap; }
+@media (max-width: 600px) { .code-row .code-actions { width: 100%; padding-left: 50px; justify-content: flex-start !important; } }

@@ -17,11 +17,12 @@ It runs on Firebase (Authentication + Cloud Firestore) using the project **nippe
 
 In the [Firebase console](https://console.firebase.google.com/), open **nippers-slsc-organisation**.
 
-1. **Turn on email sign-in.** Go to Build → **Authentication** → Get started → Sign-in method → **Email/Password** → Enable → Save.
+1. **Turn on Email/Password.** Go to Build → **Authentication** → Get started → Sign-in method → **Email/Password** → Enable → Save.
+   Nobody ever types an email. Login codes use this behind the scenes.
 2. **Create the database.** Go to Build → **Firestore Database** → Create database. Choose location **australia-southeast1 (Sydney)** and start in **production mode**.
 3. **Paste the security rules.** In Firestore → **Rules**, replace everything with the contents of `firestore.rules` in this folder, then click **Publish**.
-   These rules mean only approved age managers can see nipper data.
-4. **Authorise your web address.** Go to Authentication → Settings → **Authorised domains** and add wherever you host it, e.g. `yourname.github.io`. `localhost` is already there.
+   These rules mean only people with an active login code can see nipper data.
+4. **Authorise your web address.** Go to Authentication → Settings → **Authorised domains** and add `journeyintosound2.github.io`. `localhost` is already there.
 
 The Firebase web config is already in `js/config.js`. That key is designed to be public; the security rules are what protect the data.
 
@@ -42,11 +43,15 @@ Your app will be at `https://nippers-slsc-organisation.web.app`.
 
 **Testing on your Mac:** run `python3 -m http.server 8000` in this folder, then open http://localhost:8000.
 
-## 3. Claim the club, then invite age managers
+## 3. Login codes (no emails or passwords)
 
-1. Open the app and **create an account first**. The first account becomes the club **admin**, so do this before you share the link.
-2. Age managers then create their own accounts. They'll see "waiting for approval".
-3. Approve them in **More → Team** by setting them to *Age manager*, or *Admin* for other committee members.
+Staff sign in with a code like `K7QM-4TXA`, much like the MMT portal. MMT uses Cloud Functions, which need Firebase's paid Blaze plan, so Nipper Hub does it differently and works on the free Spark plan. Each code is a Firebase Auth account whose email and password are worked out from the code, so the code is the only thing anyone types.
+
+1. **First-time setup.** On the sign-in page tap **First-time setup (club admin)**, enter your name, and you'll get **your admin code**. Save it somewhere safe. Setup only works once: after that, the database rules lock it.
+2. **Create codes.** Go to **Admin** (top menu on desktop, or More → Admin on a phone), enter a name, choose *Age manager* or *Admin*, then press **Create code**. Use **Copy invite message** to text it to them.
+3. **Deactivate.** If someone leaves or a code gets shared, change it to **Deactivated** and their access stops immediately. A lost code can't be reset, so deactivate the old one and create a new one.
+
+Codes are 8 characters from a 31-character set (no 0/O or 1/I/L to confuse people), about 850 billion combinations. Firebase also blocks repeated wrong guesses.
 
 ## 4. Season workflow
 
@@ -70,7 +75,7 @@ Add `?demo` to the address, e.g. `http://localhost:8000/?demo`. Data in demo mod
 
 ## Privacy
 
-The app stores only what's needed to run nippers: name, optional DOB, age group, evaluation results and attendance. **Don't store medical, contact or custody information here.** Those belong in SLS Hub. Only approved staff can read the data, and admins can delete a nipper's record entirely.
+The app stores only what's needed to run nippers: name, optional DOB, age group, evaluation results and attendance. **Don't store medical, contact or custody information here.** Those belong in SLS Hub. Only active login codes can read the data. Only admins can see codes or delete a nipper's record.
 
 ## Sources for the sign-off standards
 
