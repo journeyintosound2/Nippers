@@ -1,0 +1,9 @@
+{
+  "name": "Nipper Hub",
+  "short_name": "Nippers",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#F7F1E3",
+  "theme_color": "#E2231A",
+  "icons": [{ "src": "assets/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
