@@ -251,19 +251,65 @@ NIP.GAMES = [
     prelim: ['Submersion']
   },
   {
-    id: 'bucket-brigade', name: 'Bucket Brigade', type: 'wade', from: 'U6', to: 'U10',
-    time: '10–15 min', players: 'Teams of 4–8', intensity: 'Medium',
-    equipment: ['One bucket per team', 'Sponges or cups'],
-    summary: 'Fill the team bucket with seawater, one soggy sponge at a time. It’s silly, wet and great for hot days.',
-    setup: 'Put each team’s bucket 10–15 m up the beach. Teams line up at the water’s edge.',
+    id: 'fill-the-bucket', name: 'Fill the Bucket Relay', type: 'wade', from: 'U6', to: 'U12',
+    time: '10–15 min', players: 'Two teams (or more)', intensity: 'High',
+    equipment: ['One bucket per team (mark a fill line with tape or marker)', 'One plastic cup per team', 'Cones for start lines'],
+    summary: 'Teams race to fill their bucket one cup at a time: run to the water, scoop, run back, pour, hand over the cup. First full bucket wins.',
+    setup: 'Put each team’s bucket on the sand 10–20 m up from the water’s edge, with a cone start line next to it. Teams line up single file behind their bucket. The first runner in each team holds the cup.',
     steps: [
-      'One at a time, each nipper soaks their sponge in the shallows, runs it to the bucket and squeezes it out.',
-      'First team to reach the fill line (or the most water at time) wins.'
+      'On the whistle, the first runner sprints to the water’s edge, scoops a cupful and runs back.',
+      'They pour the water into their team’s bucket, then hand the cup to the next person in line.',
+      'The runner goes to the back of the line and the next person goes.',
+      'Keep going until a bucket reaches the fill line. That team wins.'
     ],
-    rules: ['Only the water’s edge, no deeper than ankle/shin deep.'],
-    safety: ['Even at the water’s edge, follow your club’s water safety plan.'],
-    variations: ['Pass-the-cup chain: a human chain passes cups to the bucket.'],
-    skills: ['Teamwork']
+    rules: [
+      'Scoop at the water’s edge only, no deeper than ankle/shin deep.',
+      'The cup must be handed over, not thrown.',
+      'Water must go into the bucket from standing beside it, no pouring from a distance.',
+      'Spilt water doesn’t count. Go back and get more.'
+    ],
+    safety: [
+      'Even at the water’s edge, follow your club’s water safety plan and have an age manager standing at the shoreline.',
+      'Keep teams’ running lanes well apart so nobody collides on the way back.',
+      'Head count before and after.'
+    ],
+    variations: [
+      'Sponge version: soak a sponge instead of using a cup and squeeze it into the bucket. It’s slower and wetter.',
+      'Holey cup: poke a few holes in the cup so runners have to be quick.',
+      'Older groups: put the buckets further up the beach, or make runners carry the cup on their head.',
+      'Time trial: one team at a time against the clock.'
+    ],
+    skills: ['Teamwork', 'Speed', 'Fun in the water']
+  },
+  {
+    id: 'overhead-pour', name: 'Overhead Pour Relay', type: 'sand', from: 'U6', to: 'U14',
+    time: '10–15 min', players: 'Two teams of 6–10', intensity: 'Low',
+    equipment: ['One plastic cup per person', 'A bucket of seawater per team (or the water’s edge)', 'Something to measure with (a clear cup or a ruler) for the judging'],
+    summary: 'Pass water down the line by pouring it backwards over your head into the cup of the person behind you. The team with the most water left at the end wins. Messy, funny and perfect for a hot day.',
+    setup: 'Teams line up in two straight lines, everyone facing the same way, about an arm’s length apart. Everyone holds a cup. Fill the front person’s cup to the brim from the bucket.',
+    steps: [
+      'On “Go”, the front person holds their cup over their head and pours it backwards, without turning around.',
+      'The person behind them holds their own cup up and moves it around to catch as much water as they can.',
+      'That person then pours over their own head to the next person, and so on down the line.',
+      'When the water reaches the last person, the team stops. Line the back two cups up side by side.',
+      'The team whose last person has the most water in their cup wins.'
+    ],
+    rules: [
+      'No turning around to pour. The cup must go back over your own head.',
+      'Catchers can move their cup but can’t move their feet.',
+      'Don’t refill along the way. The water you lose is gone.'
+    ],
+    safety: [
+      'Use seawater from a bucket, not the hose.',
+      'Soft plastic cups only. No glass or hard drink bottles.'
+    ],
+    variations: [
+      'Two rounds: switch who is at the front.',
+      'Sideways pour: pass to the left over your shoulder.',
+      'Under-and-over: alternate over the head, then between the legs.',
+      'Blindfold the catchers (older groups) and let the pourer give directions.'
+    ],
+    skills: ['Teamwork', 'Communication', 'Cool-down']
   },
   {
     id: 'run-swim-run', name: 'Run-Swim-Run', type: 'water', from: 'U9', to: 'U14',
@@ -360,6 +406,34 @@ NIP.GAMES = [
     safety: [],
     variations: ['Call “Rip!”: fish have to run backwards.'],
     skills: ['Agility', 'Warm-up']
+  },
+  {
+    id: 'flags-up', name: 'Red Flag, Green Light', type: 'surfed', from: 'U6', to: 'U10',
+    time: '10 min', players: 'Any', intensity: 'Medium',
+    equipment: ['A red and yellow flag', 'A red flag (or red cone)', 'Cones for start and finish lines', 'Whistle (optional)'],
+    summary: 'Red Light, Green Light with a lifesaving twist. The “lifeguard” uses beach calls instead of colours, so kids learn what the flags, a rip and the siren mean while they play.',
+    setup: 'Mark a start line and a finish line 20–30 m apart on the sand. The age manager (the “lifeguard”) stands at the finish holding the flags. Nippers line up on the start line.',
+    steps: [
+      '“RED AND YELLOW!” (wave the red and yellow flag): everyone moves towards the lifeguard. That’s the green light.',
+      '“RED FLAG!” (hold up the red flag): everyone FREEZES. The beach is closed. Anyone still moving goes back to the start.',
+      '“RIP!”: everyone lies on their back like a starfish with ONE ARM RAISED, calling for help, until the lifeguard waves them on.',
+      '“SIREN!” (or three short whistles): everyone runs back to the start line, the way you’d get out of the water when the siren sounds.',
+      'The first nipper to tag the lifeguard becomes the next lifeguard.'
+    ],
+    rules: [
+      'Only the lifeguard’s calls count. No one else can call.',
+      'Moving on a red flag = back to the start.',
+      'On “Rip”, you must have one arm up until you’re waved on.'
+    ],
+    safety: ['Play on dry sand away from the water.', 'No pushing on the “Siren” run back.'],
+    variations: [
+      'Add “PATROL!”: nippers salute and point to the patrol tent.',
+      'Add “SHARK!”: everyone makes a fin and freezes (younger groups love this).',
+      'Older groups: hand over the flags and let a nipper be the lifeguard.',
+      'Quiz version: on red flag, the lifeguard asks a surf safety question. A correct answer earns 3 giant steps forward.'
+    ],
+    skills: ['Flags knowledge', 'Rip survival: float and raise an arm', 'Listening'],
+    debrief: 'Ask: what does a red flag mean? What do you do if you hear the siren? What do you do if you’re caught in a rip?'
   },
   {
     id: 'tunnel-ball', name: 'Over-Under Relay', type: 'sand', from: 'U6', to: 'U10',

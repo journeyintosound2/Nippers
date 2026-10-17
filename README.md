@@ -4,7 +4,7 @@ A web app for Nippers age managers and the Junior Activities Chair. It does four
 
 - **Sign-offs.** Records each nipper's **Preliminary Evaluation** (flotation, submersion and propulsion, set for their age group) and **Competition Evaluation**, ticked off on the beach or poolside.
 - **Sessions.** A weekly attendance register and games plan. Attendance feeds the age-award (Surf Education) recommendation.
-- **Games library.** 23 beach games and activities, each with set-up, rules, safety notes and variations. You can filter by age group and type.
+- **Games library.** 25 beach games and activities, each with set-up, rules, safety notes and variations. You can filter by age group and type.
 - **Water safety.** A ratio calculator based on the Surf Risk Rating, plus a tracker for Nipper Safety Assistants' skills maintenance.
 
 It runs on Firebase (Authentication + Cloud Firestore) using the project **nippers-slsc-organisation**. There's no build step: it's plain HTML, CSS and JS.
