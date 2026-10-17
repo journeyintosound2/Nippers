@@ -288,7 +288,7 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }
 /* ---------- Login codes ---------- */
 .code-input {
   font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 1.6rem; font-weight: 700;
-  letter-spacing: .16em; text-align: center; text-transform: uppercase;
+  letter-spacing: .1em; text-align: center; text-transform: uppercase;
 }
 .code-big {
   font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 2.2rem; font-weight: 800; letter-spacing: .14em;
@@ -389,3 +389,4 @@ details.req-ref[open] > summary::after { content: ' ▴'; }
 
 /* Installed app: no bottom gap under the tab bar */
 @media (display-mode: standalone) { .demo-banner { font-size: .78rem; } }
+.auth-card { overflow-wrap: anywhere; }

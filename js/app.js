@@ -8,10 +8,10 @@
 
   /* ---------------- state ---------------- */
   const S = {
-    user: null, me: null, ready: false,
-    participants: [], sessions: [], staff: [],
+    user: null, ready: false, denied: false,
+    participants: [], sessions: [],
     season: NIP.currentSeason(),
-    authMode: 'code', authError: '', settingUp: false, ownerCode: null, lastCreated: null, codes: [],
+    authMode: 'code', authError: '', settingUp: false,
     unsubs: [],
     evalDate: today(), evalEnv: 'Pool', evalMode: 'prelim', hideDone: false,
     nipperFilter: { q: '', ag: 'All', status: 'all' },
@@ -65,8 +65,13 @@
   const seasonKey = s => String(s).replace('/', '-');
   const initials = p => ((p.firstName || '?')[0] + (p.lastName || '')[0] || '').toUpperCase();
   const fullName = p => `${p.firstName || ''} ${p.lastName || ''}`.trim() || 'Unnamed';
-  const myName = () => (S.me && S.me.name) || (S.user && S.user.email) || 'Age Manager';
-  const isAdmin = () => S.me && S.me.role === 'admin';
+  /* One shared club login, so each person's name (for sign-off records) is
+     remembered on their own phone. */
+  const DEMO = store.mode === 'demo';
+  function myName() { try { return localStorage.getItem('nipperhub-name') || (DEMO ? 'Demo user' : 'Age Manager'); } catch (e) { return 'Age Manager'; } }
+  function setMyName(n) { try { localStorage.setItem('nipperhub-name', n); } catch (e) { } }
+  const canEdit = () => !DEMO; // demo mode can't add, edit or delete nippers
+  NIP.onSubscribeError = e => { if (e && e.code === 'permission-denied') { S.denied = true; scheduleRender(); } };
   function toast(msg) {
     const root = document.getElementById('toast-root');
     root.innerHTML = `<div class="toast" role="status">${esc(msg)}</div>`;
@@ -229,9 +234,9 @@
     pendingRender = false;
     const app = document.getElementById('app');
     if (!S.ready) return;
-    if (S.settingUp || S.ownerCode) { app.innerHTML = setupView(); return; }
+    if (S.settingUp) { app.innerHTML = setupView(); return; }
     if (!S.user) { app.innerHTML = S.authMode === 'setup' ? setupView() : authView(); return; }
-    if (!S.me || !(S.me.role === 'admin' || S.me.role === 'age_manager')) { app.innerHTML = inactiveView(); return; }
+    if (S.denied) { app.innerHTML = inactiveView(); return; }
     const r = parseHash();
     const active = NAV_GROUP[r.name] || r.name;
     let body = '';
@@ -242,61 +247,59 @@
         <div class="topbar-inner">
           <a class="brand" href="#/">${I.logo}<span class="brand-text"><span class="brand-name">${esc(C.APP_NAME)}</span><span class="brand-club">${esc(C.CLUB_NAME)}</span></span></a>
           <span class="spacer"></span>
-          <nav class="desk-nav" aria-label="Main">${NAV.map(([k, l]) => `<a href="#/${k === 'home' ? '' : k}" class="${active === k && r.name !== 'admin' ? 'active' : ''}">${l}</a>`).join('')}${isAdmin() ? `<a href="#/admin" class="${r.name === 'admin' ? 'active' : ''}">Admin</a>` : ''}</nav>
+          <nav class="desk-nav" aria-label="Main">${NAV.map(([k, l]) => `<a href="#/${k === 'home' ? '' : k}" class="${active === k ? 'active' : ''}">${l}</a>`).join('')}</nav>
           <label class="visually-hidden" for="season">Season</label>
           <select id="season" class="season-select" data-change="season">${seasonsList().map(s => `<option ${s === S.season ? 'selected' : ''}>${s}</option>`).join('')}</select>
         </div>
       </header>
       ${!S.online ? '<div class="offline-banner"><b>Offline.</b> Changes are saved on this phone and will sync when you’re back in range.</div>' : ''}
-      ${store.mode === 'demo' ? `<div class="demo-banner">Demo mode: data is saved in this browser only${location.protocol === 'file:' ? ' (open via a web server or GitHub Pages to use Firebase)' : ''}.</div>` : ''}
+      ${DEMO ? `<div class="demo-banner">Demo mode: sample nippers only, nothing is saved to the club. ${location.protocol === 'file:' ? '' : '<a href="#" data-action="exit-demo" style="color:inherit;font-weight:800">Exit demo</a>'}</div>` : ''}
       <main id="view">${body}</main>
       <nav class="bottom-nav" aria-label="Main" style="grid-template-columns:repeat(${NAV.length},1fr)">
         ${NAV.map(([k, l, ic]) => `<a href="#/${k === 'home' ? '' : k}" class="${active === k ? 'active' : ''}">${ic}<span>${l}</span></a>`).join('')}
       </nav>`;
   }
 
-  /* ================= AUTH (login codes) ================= */
+  /* ================= AUTH (single club code) ================= */
   const bigLogo = () => I.logo.replace('width="40" height="40"', 'width="54" height="54"');
   function authView() {
     return `<div class="auth-wrap"><div class="auth-card">
       <div class="logo">${bigLogo()}<div><h1>${esc(C.APP_NAME)}</h1><div class="muted">${esc(C.CLUB_NAME)} · Nippers helper</div></div></div>
       ${S.authError ? `<div class="error">${esc(S.authError)}</div>` : ''}
       <form data-form="code">
-        <label class="field">Your login code
-          <input type="text" name="code" class="code-input" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="XXXX-XXXX" maxlength="9" required></label>
+        <label class="field">Club code
+          <input type="text" name="code" class="code-input" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="CLUB CODE" maxlength="30" required></label>
+        <label class="field">Your name <span class="hint">Shown as the assessor when you sign nippers off</span>
+          <input type="text" name="name" autocomplete="name" required value="${esc(localName())}"></label>
         <button class="btn block" type="submit">Sign in</button>
       </form>
-      <p class="muted" style="font-size:.9rem;margin-top:12px">No code yet? Ask your Junior Activities Chair for one.</p>
-      ${store.mode === 'demo' ? '<p class="note">Demo mode: nothing leaves this browser. Use first-time setup to make a demo admin code.</p>' : ''}
-      <hr><button class="btn ghost" data-action="auth-mode" data-v="setup" style="padding-left:0">First-time setup (club admin)</button>
+      <hr>
+      <button class="btn secondary block" data-action="try-demo">Try demo mode</button>
+      <p class="muted" style="font-size:.85rem;margin:8px 0 0">See how it works with sample nippers. No code needed, nothing is saved.</p>
+      <button class="btn ghost" data-action="auth-mode" data-v="setup" style="padding-left:0;margin-top:10px;font-size:.85rem">First-time setup</button>
     </div></div>`;
   }
+  function localName() { try { return localStorage.getItem('nipperhub-name') || ''; } catch (e) { return ''; } }
   function setupView() {
-    if (S.settingUp) return `<div class="auth-wrap"><div class="auth-card"><div class="logo">${bigLogo()}<h1 style="font-size:1.6rem">Setting up…</h1></div><p class="muted">Creating your admin code.</p></div></div>`;
-    if (S.ownerCode) return `<div class="auth-wrap"><div class="auth-card">
-      <div class="logo">${bigLogo()}<h1 style="font-size:1.6rem">You’re the admin</h1></div>
-      <p>This is <strong>your admin login code</strong>. Write it down or save it in your phone. It’s the only way back in.</p>
-      <div class="code-big">${esc(S.ownerCode)}</div>
-      <div class="btn-row" style="margin:14px 0"><button class="btn secondary" data-action="copy" data-text="${esc(S.ownerCode)}">Copy code</button></div>
-      <p class="muted" style="font-size:.9rem">Next, go to <strong>Admin</strong> to create codes for your age managers.</p>
-      <button class="btn block" data-action="owner-done">I’ve saved it, continue</button>
-    </div></div>`;
+    if (S.settingUp) return `<div class="auth-wrap"><div class="auth-card"><div class="logo">${bigLogo()}<h1 style="font-size:1.6rem">Setting up…</h1></div><p class="muted">Creating the club login.</p></div></div>`;
     return `<div class="auth-wrap"><div class="auth-card">
-      <div class="logo">${bigLogo()}<div><h1 style="font-size:1.6rem">First-time setup</h1><div class="muted">Do this once, before anyone else signs in.</div></div></div>
+      <div class="logo">${bigLogo()}<div><h1 style="font-size:1.6rem">First-time setup</h1><div class="muted">Done once by the Junior Activities Chair.</div></div></div>
       ${S.authError ? `<div class="error">${esc(S.authError)}</div>` : ''}
       <form data-form="setup">
-        <label class="field">Your name <span class="hint">Shown as the assessor on sign-offs</span><input type="text" name="name" required autocomplete="name"></label>
-        <button class="btn block" type="submit">Create my admin code</button>
+        <label class="field">Choose the club code<input type="text" name="code" class="code-input" autocapitalize="characters" autocomplete="off" spellcheck="false" required minlength="4" maxlength="30"></label>
+        <label class="field">Type it again<input type="text" name="code2" class="code-input" autocapitalize="characters" autocomplete="off" spellcheck="false" required></label>
+        <label class="field">Your name<input type="text" name="name" required autocomplete="name" value="${esc(localName())}"></label>
+        <button class="btn block" type="submit">Create club login</button>
       </form>
+      <p class="muted" style="font-size:.85rem;margin-top:10px">This locks the database to the club code. It only works once.</p>
       <hr><button class="btn ghost" data-action="auth-mode" data-v="code" style="padding-left:0">← Back to sign in</button>
     </div></div>`;
   }
   function inactiveView() {
     return `<div class="auth-wrap"><div class="auth-card">
-      <div class="logo">${bigLogo()}<h1 style="font-size:1.6rem">Code not active</h1></div>
-      <p>This login code has been deactivated or isn’t set up yet.</p>
-      <p class="muted">Ask your Junior Activities Chair for a new code.</p>
-      <button class="btn secondary block" data-action="signout">Back to sign in</button>
+      <div class="logo">${bigLogo()}<h1 style="font-size:1.6rem">Sign in again</h1></div>
+      <p>This phone’s sign-in isn’t valid any more. The club code may have changed.</p>
+      <button class="btn block" data-action="signout">Sign in with the club code</button>
     </div></div>`;
   }
   async function copyText(t) {
@@ -307,8 +310,6 @@
       ta.remove();
     }
   }
-  const appUrl = () => location.origin + location.pathname.replace(/index\.html$/, '');
-  const inviteText = (name, code) => `Hi ${name}, here’s your ${C.APP_NAME} login code for Nippers: ${code}\nSign in at ${appUrl()}\nKeep it private, it works like a password.`;
 
   /* ================= VIEWS ================= */
   const VIEWS = {};
@@ -351,7 +352,7 @@
         <div class="stat"><div class="num">${ses.length}</div><div class="lbl">Sessions logged</div></div>
       </div>
       ${!all.length ? `<div class="card yellow" style="margin-top:14px"><h3>Get started</h3><p>Add your nippers first. You can paste a whole list from your registration spreadsheet.</p>
-        <div class="btn-row"><a class="btn" href="#/nippers?bulk=1">Add nippers</a>${store.mode === 'demo' ? '<button class="btn secondary" data-action="seed">Load sample nippers</button>' : ''}</div></div>` : ''}
+        <div class="btn-row">${canEdit() ? '<a class="btn" href="#/nippers?bulk=1">Add nippers</a>' : '<button class="btn" data-action="seed">Load sample nippers</button>'}</div></div>` : ''}
       <div class="grid-2" style="margin-top:14px">
         <div class="card flag-top" style="grid-column:1/-1"><h2>Sign-off progress by age group</h2>
           <div class="ag-cards only-mobile">${agCards}</div>
@@ -374,8 +375,8 @@
   /* ---------- Nippers list ---------- */
   VIEWS.nippers = function (r) {
     if (r.q.ag) S.nipperFilter.ag = r.q.ag;
-    if (r.q.bulk) return bulkView();
-    if (r.q.new) return nipperForm(null);
+    if (r.q.bulk && canEdit()) return bulkView();
+    if (r.q.new && canEdit()) return nipperForm(null);
     const f = S.nipperFilter;
     const all = seasonNippers();
     const counts = {}; all.forEach(p => { const a = ageGroupOf(p); counts[a] = (counts[a] || 0) + 1; });
@@ -386,8 +387,8 @@
     const others = nippers().filter(p => !NIP.AGE_GROUPS.includes(ageGroupOf(p)));
     return `
       <div class="page-head"><div><h1>Nippers</h1><p class="sub">${all.length} registered for ${esc(S.season)}</p></div>
-        <div class="btn-row"><a class="btn hide-mobile" href="#/nippers?new=1">+ Add nipper</a><a class="btn secondary" href="#/nippers?bulk=1">Paste a list</a><button class="btn secondary" data-action="export">Export CSV</button></div></div>
-      <a class="fab" href="#/nippers?new=1" aria-label="Add nipper">+</a>
+        <div class="btn-row">${canEdit() ? '<a class="btn hide-mobile" href="#/nippers?new=1">+ Add nipper</a><a class="btn secondary" href="#/nippers?bulk=1">Paste a list</a>' : ''}<button class="btn secondary" data-action="export">Export CSV</button></div></div>
+      ${canEdit() ? '<a class="fab" href="#/nippers?new=1" aria-label="Add nipper">+</a>' : '<div class="note" style="margin-bottom:12px">Demo mode uses sample nippers. Sign in with the club code to add your own.</div>'}
       <div class="card" style="margin-bottom:12px">
         <label class="visually-hidden" for="nq">Search</label>
         <input id="nq" type="search" placeholder="Search by name…" value="${esc(f.q)}" data-input="nq" style="margin-top:0">
@@ -411,15 +412,14 @@
         <div class="form-grid two">
           <label class="field">First name<input type="text" name="firstName" required value="${esc(p && p.firstName)}"></label>
           <label class="field">Last name<input type="text" name="lastName" value="${esc(p && p.lastName)}"></label>
-          <label class="field">Date of birth <span class="hint">Optional. If entered, the age group is worked out automatically (age at 30 September).</span><input type="date" name="dob" value="${esc(p && p.dob)}"></label>
-          <label class="field">Age group in ${esc(S.season)} <span class="hint">Used when no date of birth is entered.</span>
+          <label class="field">Age group in ${esc(S.season)} <span class="hint">Moves up automatically each new season.</span>
             <select name="ageGroup">${NIP.AGE_GROUPS.map(a => `<option ${a === ag ? 'selected' : ''}>${a}</option>`).join('')}</select></label>
           <label class="field">Member status <span class="hint">New nippers are evaluated at 1:1.</span>
             <select name="memberStatus"><option value="returning" ${p && p.memberStatus === 'returning' ? 'selected' : ''}>Returning</option><option value="new" ${!p || p.memberStatus === 'new' ? 'selected' : ''}>New this season</option></select></label>
         </div>
         <label class="field">Notes for age managers <span class="hint">Keep it brief and practical, e.g. “nervous in waves”. Medical and contact details belong in SLS Hub, not here.</span><textarea name="notes">${esc(p && p.notes)}</textarea></label>
         <div class="btn-row"><button class="btn" type="submit">${p ? 'Save' : 'Add nipper'}</button><a class="btn secondary" href="${p ? '#/nipper/' + p.id : '#/nippers'}">Cancel</a>
-        ${p ? `<span style="flex:1"></span><button type="button" class="btn ghost" data-action="archive" data-id="${p.id}">Archive</button>${isAdmin() ? `<button type="button" class="btn ghost" data-action="delete-nipper" data-id="${p.id}">Delete</button>` : ''}` : ''}</div>
+        ${p ? `<span style="flex:1"></span><button type="button" class="btn ghost" data-action="archive" data-id="${p.id}">Archive</button><button type="button" class="btn ghost" data-action="delete-nipper" data-id="${p.id}">Delete</button>` : ''}</div>
       </form>`;
   }
 
@@ -427,13 +427,13 @@
     const ag = S.nipperFilter.ag !== 'All' ? S.nipperFilter.ag : 'U6';
     return `<div class="page-head"><div><h1>Paste a list</h1><p class="sub">One nipper per line: <span class="kbd">First Last</span>, with optional extras separated by commas.</p></div></div>
       <form class="card" data-form="bulk" style="max-width:720px">
-        <label class="field">Default age group (for lines without a date of birth)
+        <label class="field">Age group (unless a line says otherwise, e.g. “, U9”)
           <select name="ageGroup">${NIP.AGE_GROUPS.map(a => `<option ${a === ag ? 'selected' : ''}>${a}</option>`).join('')}</select></label>
         <label class="field">Default member status
           <select name="memberStatus"><option value="returning">Returning</option><option value="new">New this season</option></select></label>
         <label class="field">Nippers
-          <span class="hint">Examples: <span class="kbd">Charlie Smith</span> · <span class="kbd">Ava Nguyen, 14/03/2017</span> · <span class="kbd">Jack Brown, U9, new</span></span>
-          <textarea name="list" rows="10" placeholder="Charlie Smith&#10;Ava Nguyen, 14/03/2017&#10;Jack Brown, U9, new" required></textarea></label>
+          <span class="hint">Examples: <span class="kbd">Charlie Smith</span> · <span class="kbd">Ava Nguyen, U8</span> · <span class="kbd">Jack Brown, U9, new</span></span>
+          <textarea name="list" rows="10" placeholder="Charlie Smith&#10;Ava Nguyen, U8&#10;Jack Brown, U9, new" required></textarea></label>
         <div class="btn-row"><button class="btn" type="submit">Add nippers</button><a class="btn secondary" href="#/nippers">Cancel</a></div>
       </form>`;
   }
@@ -442,7 +442,7 @@
   VIEWS.nipper = function (r) {
     const p = S.participants.find(x => x.id === r.id);
     if (!p) return `<div class="card empty"><h3>Nipper not found</h3><a href="#/nippers">Back to list</a></div>`;
-    if (r.q.edit) return nipperForm(p);
+    if (r.q.edit && canEdit()) return nipperForm(p);
     const ag = ageGroupOf(p);
     const att = attendance(p);
     const award = rec(p, 'award');
@@ -451,8 +451,8 @@
       <div class="page-head"><div>
         <a href="#/nippers" class="muted" style="text-decoration:none">← Nippers</a>
         <h1 style="margin-top:4px">${esc(fullName(p))}</h1>
-        <div class="row" style="gap:6px"><span class="badge ag">${esc(ag || '—')}</span>${p.memberStatus === 'new' ? '<span class="badge yellow">New member: evaluate at 1:1</span>' : '<span class="badge">Returning</span>'}${p.dob ? `<span class="muted">DOB ${fmtDate(p.dob)}</span>` : ''}</div>
-      </div><a class="btn secondary" href="#/nipper/${p.id}?edit=1">Edit</a></div>
+        <div class="row" style="gap:6px"><span class="badge ag">${esc(ag || '—')}</span>${p.memberStatus === 'new' ? '<span class="badge yellow">New member: evaluate at 1:1</span>' : '<span class="badge">Returning</span>'}</div>
+      </div>${canEdit() ? `<a class="btn secondary" href="#/nipper/${p.id}?edit=1">Edit</a>` : ''}</div>
       ${p.notes ? `<div class="callout yellow" style="margin-bottom:12px"><strong>Notes:</strong> ${esc(p.notes)}</div>` : ''}
       ${NIP.AGE_GROUPS.includes(ag) ? `
       <div class="grid">
@@ -542,7 +542,7 @@
             ${st.code !== 'competent' && st.code !== 'nyc' ? `<button class="btn small ghost" data-action="outcome" data-id="${p.id}" data-std="${mode}" data-v="nyc">Not yet</button>` : ''}
             ${st.code === 'nyc' ? `<button class="btn small ghost" data-action="outcome" data-id="${p.id}" data-std="${mode}" data-v="clear">Re-assess</button>` : ''}</div>
         </div>`;
-      }).join('') : `<div class="card empty"><h3>${total ? 'Everyone’s signed off 🎉' : 'No ' + ag + ' nippers yet'}</h3>${total ? '' : `<a class="btn" href="#/nippers?bulk=1&ag=${ag}">Add ${ag} nippers</a>`}</div>`}
+      }).join('') : `<div class="card empty"><h3>${total ? 'Everyone’s signed off 🎉' : 'No ' + ag + ' nippers yet'}</h3>${total ? '' : `${canEdit() ? `<a class="btn" href="#/nippers?bulk=1&ag=${ag}">Add ${ag} nippers</a>` : ''}`}</div>`}
       </div>
       <p class="muted" style="font-size:.85rem;margin-top:14px">Signing off here records the evaluation in Nipper Hub. Also record it in your club’s official system (SLS Hub / Nipper App) so it counts for competition entries.</p>`;
   };
@@ -763,61 +763,11 @@
       <div class="grid-2">
         <div class="card flag-top"><h2>When NSAs can help</h2><ul style="padding-left:20px;margin:0">${NIP.REF.nsaConditions.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
           <p class="muted" style="margin-top:10px;font-size:.9rem"><strong>Who can assess:</strong> ${esc(NIP.REF.nsaAssessor)}</p></div>
-        <form class="card" data-form="helper"><h2>Add a helper</h2>
+        ${!canEdit() ? '<div class="card"><h2>Add a helper</h2><p class="muted">Sign in with the club code to add helpers.</p></div>' : ''}<form class="card" data-form="helper" ${canEdit() ? '' : 'hidden'}><h2>Add a helper</h2>
           <div class="form-grid two"><label class="field">First name<input type="text" name="firstName" required></label><label class="field">Last name<input type="text" name="lastName"></label></div>
           <button class="btn" type="submit">Add helper</button></form>
       </div>
       <div class="list" style="margin-top:14px">${list.length ? list.map(p => `<a class="list-item" href="#/helpers/${p.id}"><span class="avatar" style="background:#2E9E4F;color:#fff">${esc(initials(p))}</span><div class="grow"><div class="title">${esc(fullName(p))}</div></div>${statusBadge(status(p, 'nsa'), 'nsa')}</a>`).join('') : '<div class="empty">No helpers added yet.</div>'}</div>`;
-  };
-
-  /* ---------- Admin: login codes ---------- */
-  function ago(t) {
-    if (!t) return 'never signed in';
-    const m = Math.round((Date.now() - t) / 60000);
-    if (m < 2) return 'signed in just now';
-    if (m < 60) return `signed in ${m} min ago`;
-    if (m < 60 * 24) return `signed in ${Math.round(m / 60)} h ago`;
-    return 'last signed in ' + fmtDate(new Date(t).toLocaleDateString('en-CA'));
-  }
-  const ROLE_LABEL = { admin: 'Admin', age_manager: 'Age manager', removed: 'Deactivated', pending: 'Pending' };
-  VIEWS.team = () => VIEWS.admin();
-  VIEWS.admin = function () {
-    if (!isAdmin()) return `<div class="card empty"><h3>Admins only</h3><p>Ask your Junior Activities Chair if you need access.</p></div>`;
-    const codes = {}; S.codes.forEach(c => { codes[c.id] = c; });
-    const rank = r => r === 'admin' ? 0 : r === 'age_manager' ? 1 : 2;
-    const list = S.staff.slice().sort((a, b) => rank(a.role) - rank(b.role) || (a.name || '').localeCompare(b.name || ''));
-    const active = list.filter(m => m.role === 'admin' || m.role === 'age_manager').length;
-    const lc = S.lastCreated;
-    return `<div class="page-head"><div><h1>Admin · Login codes</h1><p class="sub">${active} active code${active === 1 ? '' : 's'}. Staff type their code on the sign-in page. No email or password needed.</p></div></div>
-      <div class="grid-2">
-        <form class="card flag-top" data-form="new-code"><h2>New login code</h2>
-          <label class="field">Name<input type="text" name="name" required placeholder="e.g. Sarah Lee (U8)"></label>
-          <label class="field">Access
-            <select name="role"><option value="age_manager">Age manager: nippers, sign-offs, sessions, games</option><option value="admin">Admin: everything, plus creating codes</option></select></label>
-          <button class="btn" type="submit">Create code</button>
-        </form>
-        ${lc ? `<div class="card yellow"><h2>Code for ${esc(lc.name)}</h2><div class="code-big">${esc(lc.code)}</div>
-            <p style="margin-top:10px;font-size:.92rem">Send it privately (text or in person). Anyone with the code can sign in.</p>
-            <div class="btn-row"><button class="btn" data-action="copy" data-text="${esc(inviteText(lc.name, lc.code))}">Copy invite message</button><button class="btn secondary" data-action="copy" data-text="${esc(lc.code)}">Copy code</button><button class="btn ghost" data-action="clear-created">Done</button></div></div>`
-        : `<div class="card"><h2>How codes work</h2><ul style="padding-left:20px;margin:0">
-            <li>One code per person, so sign-offs show who assessed each nipper.</li>
-            <li>Codes stay signed in on that phone until they sign out.</li>
-            <li>Someone leaving or a code shared too widely? <strong>Deactivate</strong> it. Access stops straight away.</li>
-            <li>Lost code? Deactivate the old one and create a new one.</li></ul></div>`}
-      </div>
-      <h2 style="margin-top:20px">Codes</h2>
-      <div class="list">${list.map(m => {
-        const me = S.user && m.id === S.user.uid; const c = codes[m.id];
-        const off = !(m.role === 'admin' || m.role === 'age_manager');
-        return `<div class="list-item code-row" style="${off ? 'opacity:.6' : ''}"><span class="avatar">${esc((m.name || '?')[0].toUpperCase())}</span>
-          <div class="grow"><div class="title">${esc(m.name || '—')} ${me ? '<span class="badge">You</span>' : ''}</div>
-            <div class="meta"><span class="mono">${c ? esc(c.code) : '—'}</span> · ${esc(ago(m.lastLogin))}</div></div>
-          <div class="row code-actions" style="gap:6px;justify-content:flex-end">
-            ${c && !off ? `<button class="btn small secondary" data-action="copy" data-text="${esc(inviteText(m.name || '', c.code))}" title="Copy invite message">Copy</button>` : ''}
-            ${me ? `<span class="badge bad">Admin</span>` : `<select data-change="role" data-id="${m.id}" style="width:auto;margin:0;min-height:34px;padding:4px 8px" aria-label="Access for ${esc(m.name)}">${['age_manager', 'admin', 'removed'].map(k => `<option value="${k}" ${m.role === k ? 'selected' : ''}>${ROLE_LABEL[k]}</option>`).join('')}</select>
-              <button class="btn small ghost" data-action="delete-code" data-id="${m.id}" aria-label="Delete ${esc(m.name)}">✕</button>`}
-          </div></div>`;
-      }).join('') || '<div class="empty">No codes yet.</div>'}</div>`;
   };
 
   /* ---------- More ---------- */
@@ -828,14 +778,19 @@
         ${tile('#/standards', I.book, 'Sign-off standards', 'Every age group’s evaluation requirements')}
         ${tile('#/safety', I.life, 'Water safety', 'Ratio calculator, uniforms, SRR bands')}
         ${tile('#/helpers', I.shield, 'Nipper Safety Assistants', 'Track NSA skills maintenance')}
-        ${isAdmin() ? tile('#/admin', I.team, 'Admin: login codes', 'Create and manage staff codes') : ''}
       </div>
       <div style="margin-top:14px">${installCard(true)}</div>
       <div class="card" style="margin-top:14px">
-        <form data-form="profile" class="row" style="align-items:flex-end"><label class="field" style="flex:1;margin:0">Your name (shown as assessor)<input type="text" name="name" required value="${esc(S.me && S.me.name)}"></label><button class="btn secondary" type="submit">Save</button></form>
-        <div class="row between" style="margin-top:14px"><span class="muted">Signed in as ${esc(ROLE_LABEL[S.me.role] || '')}</span>
-        <button class="btn secondary" data-action="signout">${I.out.replace('<svg', '<svg width="18" height="18"')} Sign out</button></div></div>
-      ${store.mode === 'demo' ? `<div class="card" style="margin-top:14px"><h3>Demo tools</h3><div class="btn-row"><button class="btn secondary" data-action="seed">Load sample nippers</button><button class="btn ghost" data-action="reset-demo">Reset demo data</button></div></div>` : ''}`;
+        <form data-form="profile" class="row" style="align-items:flex-end"><label class="field" style="flex:1;margin:0">Your name on this phone (shown as assessor)<input type="text" name="name" required value="${esc(myName())}"></label><button class="btn secondary" type="submit">Save</button></form>
+        <div class="row between" style="margin-top:14px"><span class="muted">${DEMO ? 'Demo mode' : 'Signed in with the club code'}</span>
+        ${DEMO ? '<button class="btn secondary" data-action="exit-demo">Exit demo</button>' : `<button class="btn secondary" data-action="signout">${I.out.replace('<svg', '<svg width="18" height="18"')} Sign out</button>`}</div></div>
+      ${DEMO ? `<div class="card" style="margin-top:14px"><h3>Demo tools</h3><p class="muted">Start again with fresh sample nippers.</p><button class="btn secondary" data-action="reset-demo">Reset demo</button></div>`
+        : `<details class="card" style="margin-top:14px"><summary>Change the club code</summary>
+          <p class="muted" style="font-size:.9rem;margin-top:8px">Everyone else will need the new code. Other phones are signed out within about an hour. Nipper data isn’t affected.</p>
+          <form data-form="change-code"><label class="field">Current code<input type="text" name="old" class="code-input" autocapitalize="characters" autocomplete="off" required></label>
+          <label class="field">New code<input type="text" name="code" class="code-input" autocapitalize="characters" autocomplete="off" required minlength="4"></label>
+          <label class="field">New code again<input type="text" name="code2" class="code-input" autocapitalize="characters" autocomplete="off" required></label>
+          <button class="btn" type="submit">Change code</button></form></details>`}`;
   };
 
   /* ================= EVENTS ================= */
@@ -846,18 +801,12 @@
     e.preventDefault();
     switch (a) {
       case 'auth-mode': S.authMode = d.v; S.authError = ''; render(); break;
-      case 'owner-done': S.ownerCode = null; S.authMode = 'code'; location.hash = '#/admin'; render(); break;
+      case 'try-demo': location.href = location.pathname + '?demo#/'; break;
+      case 'exit-demo': location.href = location.pathname + '#/'; break;
       case 'copy': await copyText(d.text); break;
       case 'install': if (S.installEvt) { S.installEvt.prompt(); try { await S.installEvt.userChoice; } catch (x) { } S.installEvt = null; render(); } break;
       case 'install-dismiss': try { localStorage.setItem('nipperhub-install-dismissed', '1'); } catch (x) { } render(); break;
-      case 'clear-created': S.lastCreated = null; render(); break;
-      case 'delete-code': {
-        const m = S.staff.find(x => x.id === d.id);
-        if (m && confirm(`Delete ${m.name || 'this'} code? They will no longer be able to sign in. Their past sign-offs are kept.`)) {
-          await safe(async () => { await store.remove('codes', d.id); await store.remove('staff', d.id); }, 'Code deleted');
-        } break;
-      }
-      case 'signout': S.authMode = 'code'; S.authError = ''; await store.signOut(); location.hash = '#/'; break;
+      case 'signout': S.authMode = 'code'; S.authError = ''; S.denied = false; await store.signOut(); location.hash = '#/'; break;
       case 'tick': await toggleItem(d.id, d.std, d.el); break;
       case 'outcome': await setOutcome(d.id, d.std, d.v); break;
       case 'eval-mode': S.evalMode = d.v; render(); break;
@@ -868,7 +817,7 @@
       case 'export': exportCsv(); break;
       case 'print': window.print(); break;
       case 'seed': await seed(); break;
-      case 'reset-demo': if (confirm('Delete all demo data?')) { store.resetDemo(); toast('Demo data reset'); } break;
+      case 'reset-demo': if (confirm('Start the demo again with fresh sample nippers?')) { S.seeded = false; store.resetDemo(); toast('Demo reset'); } break;
       case 'archive': {
         const p = S.participants.find(x => x.id === d.id);
         if (p && confirm(`Archive ${fullName(p)}? They’ll be hidden from lists but their records are kept.`)) {
@@ -910,7 +859,6 @@
     else if (k === 'evalDate') { S.evalDate = el.value; }
     else if (k === 'evalEnv') { S.evalEnv = el.value; saveUi(); }
     else if (k === 'hideDone') { S.hideDone = el.checked; render(); }
-    else if (k === 'role') { await safe(() => store.update('staff', el.dataset.id, { role: el.value }), 'Role updated'); }
     else if (k === 'game-add' && el.value) {
       const s = S.sessions.find(x => x.id === el.dataset.sid);
       await safe(() => store.update('sessions', s.id, { games: (s.games || []).concat(el.value) }));
@@ -921,8 +869,8 @@
 
   document.addEventListener('input', e => {
     if (e.target.classList && e.target.classList.contains('code-input')) {
-      const n = NIP.normaliseCode(e.target.value).slice(0, 8);
-      e.target.value = n.length > 4 ? n.slice(0, 4) + '-' + n.slice(4) : n;
+      const pos = e.target.selectionStart; e.target.value = e.target.value.toUpperCase();
+      try { e.target.setSelectionRange(pos, pos); } catch (x) { }
       return;
     }
     const k = e.target.dataset.input; if (!k) return;
@@ -941,27 +889,31 @@
     const kind = form.dataset.form;
     try {
       if (kind === 'code') {
-        S.authError = '';
+        S.authError = ''; S.denied = false;
+        setMyName(fd.name.trim());
         const btn = form.querySelector('button'); btn.disabled = true; btn.textContent = 'Signing in…';
         await store.signInWithCode(fd.code);
         location.hash = '#/';
         return;
       }
       if (kind === 'setup') {
+        if (NIP.normaliseCode(fd.code) !== NIP.normaliseCode(fd.code2)) { S.authError = 'The two codes don’t match.'; render(); return; }
+        if (NIP.normaliseCode(fd.code).length < 4) { S.authError = 'Use at least 4 letters or numbers.'; render(); return; }
+        setMyName(fd.name.trim());
         S.authError = ''; S.settingUp = true; render();
-        try { S.ownerCode = await store.setupOwner(fd.name.trim()); }
+        try { await store.setupClub(fd.code); toast('Club login created'); }
         finally { S.settingUp = false; }
-        render(); return;
+        S.authMode = 'code'; location.hash = '#/'; render(); return;
       }
-      if (kind === 'new-code') {
-        const btn = form.querySelector('button[type=submit]'); btn.disabled = true; btn.textContent = 'Creating…';
-        const name = fd.name.trim();
-        try { const r = await store.createCode(name, fd.role); S.lastCreated = { name, code: r.code }; }
-        finally { btn.disabled = false; btn.textContent = 'Create code'; }
-        render(); return;
+      if (kind === 'change-code') {
+        if (NIP.normaliseCode(fd.code) !== NIP.normaliseCode(fd.code2)) { toast('The two new codes don’t match'); return; }
+        if (NIP.normaliseCode(fd.code).length < 4) { toast('Use at least 4 letters or numbers'); return; }
+        try { await store.changeCode(fd.old, fd.code); toast('Club code changed'); form.reset(); }
+        catch (e) { toast(/wrong-password|invalid-credential/.test(e.code || '') ? 'Current code is wrong' : 'Couldn’t change: ' + (e.code || e.message)); }
+        return;
       }
       if (kind === 'nipper') {
-        const data = { firstName: fd.firstName.trim(), lastName: (fd.lastName || '').trim(), dob: fd.dob || '', memberStatus: fd.memberStatus, notes: (fd.notes || '').trim(), kind: 'nipper', active: true };
+        const data = { firstName: fd.firstName.trim(), lastName: (fd.lastName || '').trim(), dob: '', memberStatus: fd.memberStatus, notes: (fd.notes || '').trim(), kind: 'nipper', active: true };
         data.ageGroup = fd.ageGroup; data.ageGroupSeason = S.season;
         if (form.dataset.id) { await store.update('participants', form.dataset.id, data); toast('Saved'); location.hash = '#/nipper/' + form.dataset.id; }
         else { const id = await store.add('participants', data); toast(data.firstName + ' added'); location.hash = '#/nipper/' + id; }
@@ -992,7 +944,7 @@
         S.calc = { n: Math.max(0, Number(fd.n) || 0), srr: Number(fd.srr) || 1, activity: fd.activity, u8: !!fd.u8, nsa: Math.max(0, Number(fd.nsa) || 0) };
         const box = form.nextElementSibling; if (box) box.innerHTML = '<h2>Minimum water safety</h2>' + ratioSummary(ratioCalc(S.calc));
       }
-      if (kind === 'profile') { await store.update('staff', S.user.uid, { name: fd.name.trim() }); toast('Name updated'); }
+      if (kind === 'profile') { setMyName(fd.name.trim()); toast('Name saved on this phone'); render(); }
     } catch (err) {
       console.error(err);
       if (kind === 'code' || kind === 'setup') { S.authError = authMessage(err, kind); render(); }
@@ -1002,8 +954,8 @@
 
   function authMessage(err, kind) {
     const c = err.code || '';
-    if (/invalid-credential|wrong-password|user-not-found|invalid-email/.test(c)) return 'That code isn’t recognised. Check it and try again (codes look like K7QM-4TXA).';
-    if (/already-setup/.test(c)) return 'Nipper Hub is already set up for this club. Ask your Junior Activities Chair for a login code.';
+    if (/invalid-credential|wrong-password|user-not-found|invalid-email/.test(c)) return 'That club code isn’t right. Check with your Junior Activities Chair.';
+    if (/already-setup|already-claimed/.test(c)) return 'Nipper Hub is already set up. Sign in with the club code.';
     if (/operation-not-allowed|configuration-not-found/.test(c)) return 'Login codes need Email/Password turned on in Firebase (Authentication → Sign-in method → Email/Password).';
     if (/permission-denied/.test(c)) return 'The database rules haven’t been published yet (Firestore → Rules).';
     if (/too-many-requests/.test(c)) return 'Too many attempts. Wait a minute and try again.';
@@ -1020,9 +972,7 @@
       const row = { firstName: names.shift(), lastName: names.join(' '), dob: '', ageGroup: defAg, ageGroupSeason: S.season, memberStatus: defStatus, kind: 'nipper', active: true, notes: '' };
       parts.forEach(x => {
         let m;
-        if ((m = x.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/))) row.dob = `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
-        else if (/^\d{4}-\d{2}-\d{2}$/.test(x)) row.dob = x;
-        else if (/^u\d{1,2}$/i.test(x)) row.ageGroup = x.toUpperCase();
+        if (/^u\d{1,2}$/i.test(x)) row.ageGroup = x.toUpperCase();
         else if (/^new$/i.test(x)) row.memberStatus = 'new';
         else if (/^return/i.test(x)) row.memberStatus = 'returning';
       });
@@ -1031,11 +981,11 @@
   }
 
   function exportCsv() {
-    const rows = [['First name', 'Last name', 'DOB', 'Age group', 'Member status', 'Prelim outcome', 'Prelim date', 'Prelim assessor', 'Prelim environment', 'Comp eval outcome', 'Comp eval date', 'Sessions attended', 'Sessions held', 'Age award', 'Award recommended', 'Notes']];
+    const rows = [['First name', 'Last name', 'Age group', 'Member status', 'Prelim outcome', 'Prelim date', 'Prelim assessor', 'Prelim environment', 'Comp eval outcome', 'Comp eval date', 'Sessions attended', 'Sessions held', 'Age award', 'Award recommended', 'Notes']];
     seasonNippers().sort((a, b) => NIP.AGE_GROUPS.indexOf(ageGroupOf(a)) - NIP.AGE_GROUPS.indexOf(ageGroupOf(b)) || (a.lastName || '').localeCompare(b.lastName || '')).forEach(p => {
       const ag = ageGroupOf(p); const pr = rec(p, 'prelim') || {}; const cp = rec(p, 'comp') || {}; const aw = rec(p, 'award') || {}; const at = attendance(p);
       const lbl = c => ({ competent: 'Competent', nyc: 'Not yet competent', in_progress: 'In progress', not_started: '', na: 'N/A' })[c];
-      rows.push([p.firstName, p.lastName, p.dob, ag, p.memberStatus, lbl(status(p, 'prelim').code), pr.date, pr.assessor, pr.environment, lbl(status(p, 'comp').code), cp.date, at.here, at.total, NIP.AGE_AWARDS[ag], aw.outcome === 'competent' ? 'Yes' : '', p.notes]);
+      rows.push([p.firstName, p.lastName, ag, p.memberStatus, lbl(status(p, 'prelim').code), pr.date, pr.assessor, pr.environment, lbl(status(p, 'comp').code), cp.date, at.here, at.total, NIP.AGE_AWARDS[ag], aw.outcome === 'competent' ? 'Yes' : '', p.notes]);
     });
     const csv = rows.map(r => r.map(v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`).join(',')).join('\r\n');
     const a = document.createElement('a');
@@ -1044,21 +994,35 @@
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
 
+  /* Sample nippers for demo mode, with some sign-offs already done. */
   async function seed() {
+    S.seeded = true;
     const first = ['Charlie', 'Ava', 'Jack', 'Mia', 'Oliver', 'Isla', 'Noah', 'Ruby', 'Leo', 'Grace', 'Henry', 'Zara', 'Archie', 'Willow', 'Lucas', 'Matilda', 'Hudson', 'Harper', 'Max', 'Sienna', 'Billy', 'Frankie', 'Tom', 'Evie', 'Kai', 'Lily', 'Finn'];
     const last = ['Smith', 'Nguyen', 'Brown', 'Wilson', 'Taylor', 'Kelly', 'Murphy', 'Walker', 'Clarke', 'Hughes', 'Ryan', 'Patel'];
-    const rows = first.map((f, i) => ({ firstName: f, lastName: last[i % last.length], dob: '', ageGroup: NIP.AGE_GROUPS[i % 9], ageGroupSeason: S.season, memberStatus: i % 4 === 0 ? 'new' : 'returning', kind: 'nipper', active: true, notes: '' }));
+    const key = seasonKey(S.season);
+    const rows = first.map((f, i) => {
+      const ag = NIP.AGE_GROUPS[i % 9];
+      const row = { firstName: f, lastName: last[i % last.length], dob: '', ageGroup: ag, ageGroupSeason: S.season, memberStatus: i % 4 === 0 ? 'new' : 'returning', kind: 'nipper', active: true, notes: i === 5 ? 'A bit nervous in waves, likes a buddy' : '' };
+      if (i % 3 === 0) {
+        const items = {}; NIP.PRELIM[ag].forEach(e => { items[e.id] = true; });
+        row.signoffs = { [key]: { prelim: { items, outcome: 'competent', date: today(), assessor: 'Sample Age Manager', environment: 'Pool', ageGroup: ag } } };
+      }
+      return row;
+    });
     await store.batchAdd('participants', rows);
-    toast('Sample nippers added');
   }
 
   /* ================= BOOT ================= */
   window.addEventListener('hashchange', () => { render(); window.scrollTo(0, 0); });
 
-  function startData(admin) {
+  function startData() {
     S.unsubs.forEach(u => u && u()); S.unsubs = [];
-    ['participants', 'sessions', 'staff'].concat(admin ? ['codes'] : []).forEach(col => {
-      S.unsubs.push(store.subscribe(col, list => { S[col] = list; scheduleRender(); }));
+    ['participants', 'sessions'].forEach(col => {
+      S.unsubs.push(store.subscribe(col, list => {
+        S[col] = list;
+        if (DEMO && col === 'participants' && !list.length && !S.seeded) { seed(); return; }
+        scheduleRender();
+      }));
     });
   }
 
@@ -1069,16 +1033,15 @@
       document.getElementById('app').innerHTML = `<div class="auth-wrap"><div class="auth-card"><h2>Couldn’t connect</h2><p>Firebase didn’t load. Check your internet connection and refresh.</p><p class="muted">${esc(e.message)}</p><p><a href="?demo">Open in demo mode instead</a></p></div></div>`;
       return;
     }
-    let started = null; // null = not started, else 'admin' | 'staff'
-    store.onAuth((user, me) => {
-      S.user = user; S.me = me; S.ready = true;
-      const ok = user && me && (me.role === 'admin' || me.role === 'age_manager');
-      const want = ok ? (me.role === 'admin' ? 'admin' : 'staff') : null;
-      if (want !== started) {
+    let startedFor = null;
+    store.onAuth(user => {
+      S.user = user; S.ready = true;
+      const id = user ? user.uid : null;
+      if (id !== startedFor) {
         S.unsubs.forEach(u => u && u()); S.unsubs = [];
-        if (!want) { S.participants = []; S.sessions = []; S.staff = []; S.codes = []; S.lastCreated = null; }
-        else startData(want === 'admin');
-        started = want;
+        S.participants = []; S.sessions = []; S.denied = false;
+        if (id) startData();
+        startedFor = id;
       }
       render();
     });

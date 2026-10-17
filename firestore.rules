@@ -1,58 +1,32 @@
 rules_version = '2';
 
-// Nipper Hub — Firestore security rules (login-code version)
+// Nipper Hub — Firestore security rules (single club code)
 //
-// - Staff sign in with a login code. Each code is a Firebase Auth account
-//   with a matching staff/{uid} document that says what role it has.
-// - Only active staff (role 'admin' or 'age_manager') can read/write nipper data.
-//   Setting a code to 'removed' (Deactivate on the Admin page) cuts access instantly.
-// - Only admins can create codes, see codes, or change roles.
-// - First-time setup: the very first admin code can claim the club by creating
-//   meta/owner in the same batch. Once meta/owner exists, that door is closed.
+// Everyone signs in with the same club code, which is one Firebase Auth
+// account. Only that account (recorded in meta/owner during first-time
+// setup) can read or write nipper data. Anyone else, including someone who
+// makes their own Firebase account, is locked out.
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function signedIn() { return request.auth != null; }
-    function staffPath() { return /databases/$(database)/documents/staff/$(request.auth.uid); }
     function ownerPath() { return /databases/$(database)/documents/meta/owner; }
-    function role() { return get(staffPath()).data.role; }
-    function isStaff() { return signedIn() && exists(staffPath()) && role() in ['admin', 'age_manager']; }
-    function isAdmin() { return signedIn() && exists(staffPath()) && role() == 'admin'; }
-    // True only inside the first-time-setup batch, for the person claiming the club.
-    function isClaimingOwner() {
-      return signedIn() && !exists(ownerPath()) && getAfter(ownerPath()).data.uid == request.auth.uid;
+    function isClub() {
+      return request.auth != null && exists(ownerPath()) && get(ownerPath()).data.uid == request.auth.uid;
     }
 
+    // First-time setup claims the database once. After that it can't be changed.
     match /meta/owner {
-      allow read: if signedIn();
-      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
       allow update, delete: if false;
     }
 
-    match /staff/{uid} {
-      allow read: if isStaff() || (signedIn() && request.auth.uid == uid);
-      allow create: if isAdmin()
-        || (request.auth.uid == uid && isClaimingOwner() && request.resource.data.role == 'admin');
-      // Admins can change anyone. Staff can update their own record (name, last
-      // sign-in) but can never change their own role.
-      allow update: if isAdmin()
-        || (signedIn() && request.auth.uid == uid && request.resource.data.role == resource.data.role);
-      allow delete: if isAdmin();
-    }
-
-    // The login codes themselves — admins only.
-    match /codes/{uid} {
-      allow read, update, delete: if isAdmin();
-      allow create: if isAdmin() || (request.auth.uid == uid && isClaimingOwner());
-    }
-
     match /participants/{id} {
-      allow read, create, update: if isStaff();
-      allow delete: if isAdmin();
+      allow read, write: if isClub();
     }
 
     match /sessions/{id} {
-      allow read, create, update, delete: if isStaff();
+      allow read, write: if isClub();
     }
 
     // Everything else is closed.

@@ -9,7 +9,7 @@
 window.NIP = window.NIP || {};
 
 NIP.CONFIG = {
-  CLUB_NAME: 'Surf Life Saving Club',      // e.g. 'Woolgoolga SLSC'
+  CLUB_NAME: 'BVNB SLSC',
   APP_NAME: 'Nipper Hub',
 
   // Firebase project: nippers-slsc-organisation
