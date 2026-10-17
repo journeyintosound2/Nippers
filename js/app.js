@@ -516,11 +516,11 @@
       <div class="grid-2">
         <div class="stack">
         ${NIP.COMP[ag] ? `<div class="chips"><button class="chip ${mode === 'prelim' ? 'active' : ''}" data-action="eval-mode" data-v="prelim">Preliminary</button><button class="chip ${mode === 'comp' ? 'active' : ''}" data-action="eval-mode" data-v="comp">Competition</button></div>` : ''}
-        <details class="req-ref" ${(S.reqOpen == null ? !isPhone() : S.reqOpen) ? 'open' : ''}>
-          <summary><strong>${ag} · ${mode === 'prelim' ? 'Preliminary Evaluation' : 'Competition Evaluation'}</strong> <span class="muted" style="font-size:.85rem">(what to look for)</span></summary>
+        <div class="req-ref">
+          <div><strong>${ag} · ${mode === 'prelim' ? 'Preliminary Evaluation' : 'Competition Evaluation'}</strong> <span class="muted" style="font-size:.85rem">(what they need to do)</span></div>
           ${mode === 'prelim' ? `<div class="muted" style="font-size:.85rem;margin-top:4px">${NIP.STAGES[NIP.stageOf(ag)].name} · recommended depth ${NIP.STAGES[NIP.stageOf(ag)].depth}</div>` : ''}
           <ol>${els.map(e => `<li><strong>${esc(shortLabel(e))}:</strong> ${esc(e.text)}</li>`).join('')}</ol>
-        </details>
+        </div>
         </div>
         <div class="card">
           <div class="form-grid two">
@@ -954,8 +954,9 @@
 
   function authMessage(err, kind) {
     const c = err.code || '';
-    if (/invalid-credential|wrong-password|user-not-found|invalid-email/.test(c)) return 'That club code isn’t right. Check with your Junior Activities Chair.';
-    if (/already-setup|already-claimed/.test(c)) return 'Nipper Hub is already set up. Sign in with the club code.';
+    if (/invalid-credential|wrong-password|user-not-found|invalid-email/.test(c)) return 'That club code isn’t right. (Setting Nipper Hub up for the first time? Tap “First-time setup” below first.)';
+    if (/already-setup/.test(c)) return 'The club login already exists. Go back and sign in with the club code.';
+    if (/already-claimed/.test(c)) return 'The database is still locked by an earlier setup. In the Firebase console go to Firestore → Data, delete the “meta” collection (and “staff” / “codes” if they’re there), then try First-time setup again.';
     if (/operation-not-allowed|configuration-not-found/.test(c)) return 'Login codes need Email/Password turned on in Firebase (Authentication → Sign-in method → Email/Password).';
     if (/permission-denied/.test(c)) return 'The database rules haven’t been published yet (Firestore → Rules).';
     if (/too-many-requests/.test(c)) return 'Too many attempts. Wait a minute and try again.';
