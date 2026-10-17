@@ -131,6 +131,16 @@ window.NIP = window.NIP || {};
 
     function toFs(v) { return v === NIP.DELETE ? fb.deleteField() : v; }
 
+    /* Offline-friendly writes. Firestore applies a change to the local cache
+       instantly and syncs when there's reception, but its promise only
+       resolves once the server confirms. So we wait at most 2.5 s, then carry
+       on; a later failure (e.g. permissions) is still reported. */
+    function settle(p) {
+      let waited = false;
+      p.catch(e => { if (waited && NIP.onWriteError) NIP.onWriteError(e); });
+      return Promise.race([p, new Promise(r => setTimeout(() => { waited = true; r(); }, 2500))]);
+    }
+
     return {
       mode: 'firebase',
       async init() { await load(); },
@@ -199,20 +209,21 @@ window.NIP = window.NIP || {};
           err => { console.warn('Subscribe ' + col + ' failed:', err.code); cb([]); });
       },
       async add(col, data) {
-        const r = await fb.addDoc(fb.collection(fs, col), Object.assign({ createdAt: Date.now(), createdBy: currentUser && currentUser.uid }, data));
-        return r.id;
+        const ref = fb.doc(fb.collection(fs, col));
+        await settle(fb.setDoc(ref, Object.assign({ createdAt: Date.now(), createdBy: currentUser && currentUser.uid }, data)));
+        return ref.id;
       },
       async update(col, id, patch) {
         const p = {};
         Object.entries(patch).forEach(([k, v]) => { p[k] = toFs(v); });
-        await fb.updateDoc(fb.doc(fs, col, id), p);
+        await settle(fb.updateDoc(fb.doc(fs, col, id), p));
       },
-      async remove(col, id) { await fb.deleteDoc(fb.doc(fs, col, id)); },
+      async remove(col, id) { await settle(fb.deleteDoc(fb.doc(fs, col, id))); },
       async batchAdd(col, list) {
         for (let i = 0; i < list.length; i += 400) {
           const batch = fb.writeBatch(fs);
           list.slice(i, i + 400).forEach(d => batch.set(fb.doc(fb.collection(fs, col)), Object.assign({ createdAt: Date.now(), createdBy: currentUser && currentUser.uid }, d)));
-          await batch.commit();
+          await settle(batch.commit());
         }
       }
     };

@@ -1,9 +1,22 @@
 {
+  "id": "./",
   "name": "Nipper Hub",
-  "short_name": "Nippers",
+  "short_name": "Nipper Hub",
+  "description": "Nippers helper: preliminary evaluation sign-offs, attendance, water safety ratios and beach games.",
   "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
-  "background_color": "#F7F1E3",
+  "orientation": "portrait",
+  "background_color": "#E2231A",
   "theme_color": "#E2231A",
-  "icons": [{ "src": "assets/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+  "categories": ["sports", "education", "productivity"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Sign-off", "url": "./index.html#/evaluate", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Games", "url": "./index.html#/games", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+  ]
 }

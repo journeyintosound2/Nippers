@@ -21,6 +21,33 @@
     const saved = JSON.parse(localStorage.getItem('nipperhub-ui') || '{}');
     if (saved.evalEnv) S.evalEnv = saved.evalEnv;
   } catch (e) { }
+  /* ---------- installed-app helpers ---------- */
+  S.online = navigator.onLine !== false;
+  window.addEventListener('online', () => { S.online = true; scheduleRender(); });
+  window.addEventListener('offline', () => { S.online = false; scheduleRender(); });
+  const isStandalone = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+  const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isPhone = () => window.matchMedia && matchMedia('(max-width: 900px)').matches;
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); S.installEvt = e; scheduleRender(); });
+  window.addEventListener('appinstalled', () => { S.installEvt = null; toast('Nipper Hub installed'); scheduleRender(); });
+  function installDismissed() { try { return localStorage.getItem('nipperhub-install-dismissed') === '1'; } catch (e) { return false; } }
+  const buzz = () => { try { navigator.vibrate && navigator.vibrate(12); } catch (e) { } };
+  NIP.onWriteError = e => toast('A change didn’t sync: ' + (e.code || e.message));
+
+  function installCard(force) {
+    if (isStandalone()) return force ? `<div class="card"><strong>Installed ✓</strong><p class="muted" style="margin:4px 0 0">You’re using Nipper Hub as an app.</p></div>` : '';
+    if (!force && (installDismissed() || !isPhone())) return '';
+    const shareIcon = '<svg class="ios-share" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M6 11H5v10h14V11h-1"/></svg>';
+    const how = S.installEvt
+      ? `<button class="btn small" data-action="install">Install app</button>`
+      : isIOS()
+        ? `<span style="font-size:.9rem">In Safari, tap ${shareIcon} <strong>Share</strong>, then <strong>Add to Home Screen</strong>.</span>`
+        : `<span style="font-size:.9rem">Open your browser menu <strong>⋮</strong> and choose <strong>Install app</strong> or <strong>Add to Home screen</strong>.</span>`;
+    return `<div class="card yellow" style="margin-bottom:14px"><div class="install-card"><img src="icons/icon-192.png" alt="">
+      <div style="flex:1"><strong>Put Nipper Hub on your home screen</strong><div class="muted" style="font-size:.88rem;margin:2px 0 8px">Opens full-screen like an app and works with no reception at the beach.</div>${how}</div>
+      ${force ? '' : '<button class="btn small ghost" data-action="install-dismiss" aria-label="Dismiss">✕</button>'}</div></div>`;
+  }
+
   function saveUi() { try { localStorage.setItem('nipperhub-ui', JSON.stringify({ evalEnv: S.evalEnv })); } catch (e) { } }
 
   /* ---------------- utils ---------------- */
@@ -117,6 +144,7 @@
   /* ---------------- sign-off actions ---------------- */
   function soPath(std, sub) { return `signoffs.${seasonKey(S.season)}.${std}${sub ? '.' + sub : ''}`; }
   async function toggleItem(pid, std, eid) {
+    buzz();
     const p = S.participants.find(x => x.id === pid); if (!p) return;
     const ag = std === 'nsa' ? null : ageGroupOf(p);
     const els = elementsFor(std, ag);
@@ -219,6 +247,7 @@
           <select id="season" class="season-select" data-change="season">${seasonsList().map(s => `<option ${s === S.season ? 'selected' : ''}>${s}</option>`).join('')}</select>
         </div>
       </header>
+      ${!S.online ? '<div class="offline-banner"><b>Offline.</b> Changes are saved on this phone and will sync when you’re back in range.</div>' : ''}
       ${store.mode === 'demo' ? `<div class="demo-banner">Demo mode: data is saved in this browser only${location.protocol === 'file:' ? ' (open via a web server or GitHub Pages to use Firebase)' : ''}.</div>` : ''}
       <main id="view">${body}</main>
       <nav class="bottom-nav" aria-label="Main" style="grid-template-columns:repeat(${NAV.length},1fr)">
@@ -302,10 +331,19 @@
         <td class="hide-sm">${compDone === null ? '<span class="muted">n/a</span>' : list.length ? `${compDone}/${list.length}` : '–'}</td>
         <td><a class="btn small secondary" href="#/evaluate?ag=${ag}">Sign off</a></td></tr>`;
     }).join('');
+    const agCards = NIP.AGE_GROUPS.map(ag => {
+      const list = all.filter(p => ageGroupOf(p) === ag);
+      const done = list.filter(p => status(p, 'prelim').code === 'competent').length;
+      const pct = list.length ? Math.round(100 * done / list.length) : 0;
+      return `<a class="ag-card" href="#/evaluate?ag=${ag}"><span class="badge ag">${ag}</span>
+        <div class="grow"><div class="row between" style="gap:6px"><span class="award">${esc(NIP.AGE_AWARDS[ag])}</span><strong style="font-size:.9rem">${list.length ? done + '/' + list.length : '–'}</strong></div>
+        <div class="progress" style="margin-top:6px"><i style="width:${pct}%"></i></div></div><span class="chev">›</span></a>`;
+    }).join('');
     const upcoming = ses.filter(s => s.date >= today()).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 3);
     return `
       <div class="page-head"><div><h1>G’day, ${esc((myName() || '').split(' ')[0])}</h1><p class="sub">Season ${esc(S.season)} · ${esc(C.CLUB_NAME)}</p></div>
         <div class="btn-row"><a class="btn" href="#/evaluate">Start sign-offs</a><a class="btn yellow" href="#/sessions?new=1">Plan a session</a></div></div>
+      ${installCard(false)}
       <div class="stats">
         <div class="stat red"><div class="num">${all.length}</div><div class="lbl">Nippers this season</div></div>
         <div class="stat"><div class="num" style="color:var(--ok)">${comp}</div><div class="lbl">Prelim evaluation competent</div></div>
@@ -316,7 +354,8 @@
         <div class="btn-row"><a class="btn" href="#/nippers?bulk=1">Add nippers</a>${store.mode === 'demo' ? '<button class="btn secondary" data-action="seed">Load sample nippers</button>' : ''}</div></div>` : ''}
       <div class="grid-2" style="margin-top:14px">
         <div class="card flag-top" style="grid-column:1/-1"><h2>Sign-off progress by age group</h2>
-          <div class="table-wrap"><table class="ag-table"><thead><tr><th>Age group</th><th>Nippers</th><th>Preliminary evaluation</th><th class="hide-sm">Comp eval</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+          <div class="ag-cards only-mobile">${agCards}</div>
+          <div class="table-wrap only-desktop"><table class="ag-table"><thead><tr><th>Age group</th><th>Nippers</th><th>Preliminary evaluation</th><th class="hide-sm">Comp eval</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
         </div>
         <div class="card"><h2>Coming up</h2>${upcoming.length ? `<div class="stack">${upcoming.map(s => `<a class="list-item card-link" style="padding:8px 0" href="#/session/${s.id}"><div class="grow"><div class="title">${fmtDay(s.date)} · ${esc(s.ageGroup)}</div><div class="meta">${(s.games || []).length} games planned</div></div></a>`).join('')}</div>` : '<p class="muted">No sessions planned yet.</p>'}
           <a class="btn small secondary" href="#/sessions?new=1">+ New session</a></div>
@@ -347,12 +386,13 @@
     const others = nippers().filter(p => !NIP.AGE_GROUPS.includes(ageGroupOf(p)));
     return `
       <div class="page-head"><div><h1>Nippers</h1><p class="sub">${all.length} registered for ${esc(S.season)}</p></div>
-        <div class="btn-row"><a class="btn" href="#/nippers?new=1">+ Add nipper</a><a class="btn secondary" href="#/nippers?bulk=1">Paste a list</a><button class="btn secondary" data-action="export">Export CSV</button></div></div>
+        <div class="btn-row"><a class="btn hide-mobile" href="#/nippers?new=1">+ Add nipper</a><a class="btn secondary" href="#/nippers?bulk=1">Paste a list</a><button class="btn secondary" data-action="export">Export CSV</button></div></div>
+      <a class="fab" href="#/nippers?new=1" aria-label="Add nipper">+</a>
       <div class="card" style="margin-bottom:12px">
         <label class="visually-hidden" for="nq">Search</label>
         <input id="nq" type="search" placeholder="Search by name…" value="${esc(f.q)}" data-input="nq" style="margin-top:0">
-        <div class="chips" style="margin-top:10px">${['All'].concat(NIP.AGE_GROUPS).map(a => `<button class="chip ${f.ag === a ? 'active' : ''}" data-action="nf-ag" data-v="${a}">${a}${a !== 'All' && counts[a] ? `<span class="count">${counts[a]}</span>` : ''}</button>`).join('')}</div>
-        <div class="chips" style="margin-top:8px">${[['all', 'Any status'], ['todo', 'Prelim to do'], ['nyc', 'Not yet competent'], ['competent', 'Competent']].map(([k, l]) => `<button class="chip ${f.status === k ? 'active' : ''}" data-action="nf-status" data-v="${k}">${l}</button>`).join('')}</div>
+        <div class="chips scroll" style="margin-top:10px">${['All'].concat(NIP.AGE_GROUPS).map(a => `<button class="chip ${f.ag === a ? 'active' : ''}" data-action="nf-ag" data-v="${a}">${a}${a !== 'All' && counts[a] ? `<span class="count">${counts[a]}</span>` : ''}</button>`).join('')}</div>
+        <div class="chips scroll" style="margin-top:8px">${[['all', 'Any status'], ['todo', 'Prelim to do'], ['nyc', 'Not yet competent'], ['competent', 'Competent']].map(([k, l]) => `<button class="chip ${f.status === k ? 'active' : ''}" data-action="nf-status" data-v="${k}">${l}</button>`).join('')}</div>
       </div>
       ${list.length ? `<div class="list">${list.map(p => {
         const ag = ageGroupOf(p); const att = attendance(p);
@@ -472,13 +512,15 @@
     const newCount = list.filter(p => p.memberStatus === 'new').length;
     return `
       <div class="page-head"><div><h1>Sign-off</h1><p class="sub">Tap each element as the nipper completes it. A nipper is signed off automatically once every element is ticked.</p></div></div>
-      <div class="chips" style="margin-bottom:10px">${NIP.AGE_GROUPS.map(a => `<a class="chip ${a === ag ? 'active' : ''}" style="text-decoration:none" href="#/evaluate?ag=${a}">${a}</a>`).join('')}</div>
+      <div class="chips scroll bare" style="margin-bottom:10px">${NIP.AGE_GROUPS.map(a => `<a class="chip ${a === ag ? 'active' : ''}" style="text-decoration:none" href="#/evaluate?ag=${a}">${a}</a>`).join('')}</div>
       <div class="grid-2">
-        <div class="req-ref">
-          <div class="row between"><strong>${ag} · ${mode === 'prelim' ? 'Preliminary Evaluation' : 'Competition Evaluation'}</strong>
-          ${NIP.COMP[ag] ? `<span class="chips"><button class="chip ${mode === 'prelim' ? 'active' : ''}" data-action="eval-mode" data-v="prelim">Prelim</button><button class="chip ${mode === 'comp' ? 'active' : ''}" data-action="eval-mode" data-v="comp">Comp</button></span>` : ''}</div>
-          ${mode === 'prelim' ? `<div class="muted" style="font-size:.85rem">${NIP.STAGES[NIP.stageOf(ag)].name} · recommended depth ${NIP.STAGES[NIP.stageOf(ag)].depth}</div>` : ''}
+        <div class="stack">
+        ${NIP.COMP[ag] ? `<div class="chips"><button class="chip ${mode === 'prelim' ? 'active' : ''}" data-action="eval-mode" data-v="prelim">Preliminary</button><button class="chip ${mode === 'comp' ? 'active' : ''}" data-action="eval-mode" data-v="comp">Competition</button></div>` : ''}
+        <details class="req-ref" ${(S.reqOpen == null ? !isPhone() : S.reqOpen) ? 'open' : ''}>
+          <summary><strong>${ag} · ${mode === 'prelim' ? 'Preliminary Evaluation' : 'Competition Evaluation'}</strong> <span class="muted" style="font-size:.85rem">(what to look for)</span></summary>
+          ${mode === 'prelim' ? `<div class="muted" style="font-size:.85rem;margin-top:4px">${NIP.STAGES[NIP.stageOf(ag)].name} · recommended depth ${NIP.STAGES[NIP.stageOf(ag)].depth}</div>` : ''}
           <ol>${els.map(e => `<li><strong>${esc(shortLabel(e))}:</strong> ${esc(e.text)}</li>`).join('')}</ol>
+        </details>
         </div>
         <div class="card">
           <div class="form-grid two">
@@ -510,7 +552,8 @@
     if (r.q.new) return sessionForm();
     const list = S.sessions.filter(s => s.season === S.season).sort((a, b) => b.date.localeCompare(a.date));
     return `<div class="page-head"><div><h1>Sessions</h1><p class="sub">Weekly attendance and game plans. Attendance feeds the age-award recommendation.</p></div>
-      <a class="btn" href="#/sessions?new=1">+ New session</a></div>
+      <a class="btn hide-mobile" href="#/sessions?new=1">+ New session</a></div>
+      <a class="fab" href="#/sessions?new=1" aria-label="New session">+</a>
       ${list.length ? `<div class="list">${list.map(s => `<a class="list-item" href="#/session/${s.id}"><span class="avatar" style="background:var(--navy);color:#fff">${esc((s.ageGroup || '').replace('All', '★'))}</span>
         <div class="grow"><div class="title">${fmtDay(s.date)}${s.title ? ' · ' + esc(s.title) : ''}</div><div class="meta">${esc(s.ageGroup)} · ${(s.present || []).length} present · ${(s.games || []).length} games${s.srr ? ' · SRR ' + esc(s.srr) : ''}</div></div>
         ${s.date >= today() ? '<span class="badge water">Upcoming</span>' : ''}</a>`).join('')}</div>`
@@ -577,8 +620,8 @@
     return `<div class="page-head"><div><h1>Games &amp; activities</h1><p class="sub">${NIP.GAMES.length} beach games with set-up, rules and safety notes. Add them to a session plan.</p></div></div>
       <div class="card" style="margin-bottom:12px">
         <input type="search" placeholder="Search games or skills (e.g. flotation, rips)…" value="${esc(f.q)}" data-input="gq" style="margin-top:0" aria-label="Search games">
-        <div class="chips" style="margin-top:10px">${[['all', 'All']].concat(Object.entries(NIP.GAME_TYPES).map(([k, v]) => [k, v.label])).map(([k, l]) => `<button class="chip ${f.type === k ? 'active' : ''}" data-action="gf-type" data-v="${k}">${l}</button>`).join('')}</div>
-        <div class="chips" style="margin-top:8px">${['All'].concat(NIP.AGE_GROUPS).map(a => `<button class="chip ${f.ag === a ? 'active' : ''}" data-action="gf-ag" data-v="${a}">${a}</button>`).join('')}</div>
+        <div class="chips scroll" style="margin-top:10px">${[['all', 'All']].concat(Object.entries(NIP.GAME_TYPES).map(([k, v]) => [k, v.label])).map(([k, l]) => `<button class="chip ${f.type === k ? 'active' : ''}" data-action="gf-type" data-v="${k}">${l}</button>`).join('')}</div>
+        <div class="chips scroll" style="margin-top:8px">${['All'].concat(NIP.AGE_GROUPS).map(a => `<button class="chip ${f.ag === a ? 'active' : ''}" data-action="gf-ag" data-v="${a}">${a}</button>`).join('')}</div>
       </div>
       <div class="grid-3">${list.map(g => `<a class="card card-link game-card type-${g.type}" href="#/game/${g.id}"><span class="type-strip"></span>
         <h3>${esc(g.name)}</h3><div class="game-meta">${typeBadge(g.type)}<span class="badge">${g.from}–${g.to}</span><span class="badge">${esc(g.time)}</span>${g.prelim ? `<span class="badge ok">Builds: ${esc(g.prelim.join(', '))}</span>` : ''}</div>
@@ -787,6 +830,7 @@
         ${tile('#/helpers', I.shield, 'Nipper Safety Assistants', 'Track NSA skills maintenance')}
         ${isAdmin() ? tile('#/admin', I.team, 'Admin: login codes', 'Create and manage staff codes') : ''}
       </div>
+      <div style="margin-top:14px">${installCard(true)}</div>
       <div class="card" style="margin-top:14px">
         <form data-form="profile" class="row" style="align-items:flex-end"><label class="field" style="flex:1;margin:0">Your name (shown as assessor)<input type="text" name="name" required value="${esc(S.me && S.me.name)}"></label><button class="btn secondary" type="submit">Save</button></form>
         <div class="row between" style="margin-top:14px"><span class="muted">Signed in as ${esc(ROLE_LABEL[S.me.role] || '')}</span>
@@ -804,6 +848,8 @@
       case 'auth-mode': S.authMode = d.v; S.authError = ''; render(); break;
       case 'owner-done': S.ownerCode = null; S.authMode = 'code'; location.hash = '#/admin'; render(); break;
       case 'copy': await copyText(d.text); break;
+      case 'install': if (S.installEvt) { S.installEvt.prompt(); try { await S.installEvt.userChoice; } catch (x) { } S.installEvt = null; render(); } break;
+      case 'install-dismiss': try { localStorage.setItem('nipperhub-install-dismissed', '1'); } catch (x) { } render(); break;
       case 'clear-created': S.lastCreated = null; render(); break;
       case 'delete-code': {
         const m = S.staff.find(x => x.id === d.id);
@@ -870,6 +916,8 @@
       await safe(() => store.update('sessions', s.id, { games: (s.games || []).concat(el.value) }));
     }
   });
+
+  document.addEventListener('toggle', e => { if (e.target.classList && e.target.classList.contains('req-ref')) S.reqOpen = e.target.open; }, true);
 
   document.addEventListener('input', e => {
     if (e.target.classList && e.target.classList.contains('code-input')) {

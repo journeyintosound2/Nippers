@@ -297,3 +297,95 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }
 .mono { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-weight: 700; letter-spacing: .06em; color: var(--ink); }
 .code-row { flex-wrap: wrap; }
 @media (max-width: 600px) { .code-row .code-actions { width: 100%; padding-left: 50px; justify-content: flex-start !important; } }
+
+/* =====================================================================
+   Phone / installed-app polish
+   ===================================================================== */
+html { -webkit-text-size-adjust: 100%; }
+body { padding-bottom: calc(76px + env(safe-area-inset-bottom)); overscroll-behavior-y: contain; }
+@media (min-width: 900px) { body { padding-bottom: 0; } }
+button, .btn, .chip, .pill-tick, .tick, .bottom-nav a, .list-item, .card-link {
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none;
+}
+.btn, .chip, .pill-tick, .bottom-nav a { user-select: none; -webkit-user-select: none; }
+.btn:active, .chip:active, .pill-tick:active, .tick:active { transform: scale(.97); }
+@media (hover: none) { .card-link:hover { transform: none; } }
+
+/* Top bar sits under the iPhone status bar / notch when installed */
+.topbar { padding-top: env(safe-area-inset-top); }
+.topbar-inner { padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); }
+.season-select { font-size: 16px; } /* 16px stops iOS zooming on tap */
+main { padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); }
+
+/* Bottom tab bar */
+.bottom-nav a { position: relative; min-height: 56px; justify-content: center; }
+.bottom-nav a.active::before {
+  content: ''; position: absolute; top: 0; left: 22%; right: 22%; height: 3px; border-radius: 0 0 3px 3px; background: var(--yellow);
+}
+.toast { bottom: calc(92px + env(safe-area-inset-bottom)); }
+
+/* Offline + install banners */
+.offline-banner { background: var(--navy); color: #fff; text-align: center; font-size: .85rem; font-weight: 600; padding: 7px 12px; }
+.offline-banner b { color: var(--yellow); }
+.install-card { display: flex; gap: 12px; align-items: center; }
+.install-card img { width: 52px; height: 52px; border-radius: 12px; flex: none; }
+.ios-share { display: inline-block; width: 18px; height: 18px; vertical-align: -3px; }
+
+/* Boot splash */
+.boot { min-height: 100vh; min-height: 100dvh; display: grid; place-content: center; justify-items: center; gap: 12px; background: var(--red); color: #fff;
+  font-family: var(--head); font-weight: 800; font-size: 1.6rem; text-transform: uppercase; letter-spacing: .04em; }
+.boot img { border-radius: 18px; box-shadow: 0 6px 20px rgba(0,0,0,.25); }
+.auth-wrap { min-height: 100vh; min-height: 100dvh; padding-top: max(24px, env(safe-area-inset-top)); padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+
+/* Floating action button (phones) */
+.fab {
+  position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: calc(88px + env(safe-area-inset-bottom)); z-index: 25;
+  width: 58px; height: 58px; border-radius: 50%; background: var(--red); color: #fff; display: grid; place-items: center;
+  font-size: 2rem; font-weight: 400; text-decoration: none; box-shadow: 0 6px 18px rgba(179, 20, 26, .4); border: 3px solid var(--yellow);
+}
+.only-mobile { display: block; }
+.only-desktop { display: none; }
+@media (min-width: 720px) { .only-mobile, .fab { display: none !important; } .only-desktop { display: block; } }
+@media (max-width: 719px) { .hide-mobile { display: none !important; } }
+
+/* Age-group progress cards (phone version of the home table) */
+.ag-cards { display: grid; gap: 8px; }
+.ag-card { display: flex; align-items: center; gap: 12px; padding: 12px; background: #fff; border-radius: 12px; border: 1px solid #F0EBDD; text-decoration: none; color: inherit; }
+.ag-card .badge.ag { min-width: 46px; justify-content: center; font-size: 1rem; padding: 4px 8px; }
+.ag-card .grow { flex: 1; min-width: 0; }
+.ag-card .award { font-size: .8rem; color: var(--muted); }
+.ag-card .chev { color: var(--muted); font-size: 1.4rem; line-height: 1; }
+
+/* Phone layouts */
+@media (max-width: 719px) {
+  h1 { font-size: 1.75rem; }
+  main { padding-top: 14px; }
+  .brand-name { font-size: 1.2rem; }
+  .brand svg { width: 34px; height: 34px; }
+  .page-head { margin-bottom: 10px; }
+  .page-head .btn-row { width: 100%; }
+  .page-head .btn-row .btn { flex: 1; }
+  .card { padding: 14px; }
+  /* swipeable chip rows instead of wrapping */
+  .chips.scroll { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+    margin-left: -14px; margin-right: -14px; padding: 2px 14px; scroll-padding: 14px; }
+  .chips.scroll::-webkit-scrollbar { display: none; }
+  .chips.scroll > * { flex: none; }
+  .chips.scroll.bare { margin-left: -16px; margin-right: -16px; padding-left: 16px; padding-right: 16px; }
+  .chip { min-height: 40px; padding: 8px 14px; }
+  /* bigger sign-off targets */
+  .eval-ticks { display: grid; grid-template-columns: 1fr 1fr; }
+  .pill-tick { min-height: 50px; justify-content: flex-start; font-size: .9rem; }
+  .eval-ticks .btn { grid-column: 1 / -1; }
+  .stat .num { font-size: 1.9rem; }
+  .list-item { padding: 14px 12px; min-height: 60px; }
+}
+
+/* Collapsible requirements box */
+details.req-ref > summary { cursor: pointer; list-style: none; }
+details.req-ref > summary::-webkit-details-marker { display: none; }
+details.req-ref > summary::after { content: ' ▾'; color: var(--water); }
+details.req-ref[open] > summary::after { content: ' ▴'; }
+
+/* Installed app: no bottom gap under the tab bar */
+@media (display-mode: standalone) { .demo-banner { font-size: .78rem; } }

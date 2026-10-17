@@ -53,6 +53,17 @@ Staff sign in with a code like `K7QM-4TXA`, much like the MMT portal. MMT uses C
 
 Codes are 8 characters from a 31-character set (no 0/O or 1/I/L to confuse people), about 850 billion combinations. Firebase also blocks repeated wrong guesses.
 
+## Install it on your phone
+
+Nipper Hub is an installable web app. It opens full-screen from a home-screen icon and keeps working with no reception.
+
+- **iPhone (Safari):** open the site, tap **Share**, then **Add to Home Screen**.
+- **Android (Chrome):** tap the **Install app** button on the Home screen, or go to browser menu ⋮ → **Install app**.
+
+**Offline:** the app itself is cached on the phone (`sw.js`), and Firestore keeps a local copy of the data. Sign-offs and attendance ticked with no reception are saved on the phone and sync automatically when you're back in range; a navy *Offline* banner shows while that's happening. Each phone has to sign in once while online. Creating new login codes also needs reception.
+
+**Updating:** just push to GitHub. The app checks for new files whenever it has reception, so there's no version number to change.
+
 ## 4. Season workflow
 
 | When | What |
