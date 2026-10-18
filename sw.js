@@ -6,7 +6,7 @@
    - Firestore / Auth traffic is never touched (Firestore has its own
      offline cache and queues changes until you're back in range).
    No version bumping needed when you update the site. */
-const CACHE = 'nipperhub-v1';
+const CACHE = 'nipperhub-v2';
 const SHELL = [
   './', './index.html', './manifest.webmanifest',
   './assets/styles.css', './assets/icon.svg',
@@ -15,7 +15,8 @@ const SHELL = [
 ];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  // cache:'reload' skips the browser's own HTTP cache so a new version is fetched fresh
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL.map(u => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', e => {
@@ -36,7 +37,8 @@ self.addEventListener('fetch', e => {
     // Network first, but don't wait more than 3 s on weak beach reception.
     const fromCache = () => caches.match(req, { ignoreSearch: true })
       .then(hit => hit || (req.mode === 'navigate' ? caches.match('./index.html') : undefined));
-    const network = fetch(req).then(res => {
+    // 'no-cache' = always check GitHub for a newer file (fast if unchanged)
+    const network = fetch(req, { cache: 'no-cache' }).then(res => {
       if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); }
       return res;
     });
