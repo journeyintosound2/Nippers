@@ -85,7 +85,15 @@ window.NIP = window.NIP || {};
       fb = Object.assign({}, appMod, authMod, fsMod);
       app = fb.initializeApp(config);
       auth = fb.getAuth(app);
-      fs = fb.initializeFirestore(app, { localCache: fb.persistentLocalCache({ tabManager: fb.persistentMultipleTabManager() }) });
+      // Offline cache on the phone. Single-tab mode is more reliable on iPhone
+      // (multi-tab mode can throw 'failed-precondition' when the home-screen
+      // app and a Safari tab are both open). The newest window takes over.
+      try {
+        fs = fb.initializeFirestore(app, { localCache: fb.persistentLocalCache({ tabManager: fb.persistentSingleTabManager({ forceOwnership: true }) }) });
+      } catch (e) {
+        console.warn('Offline cache unavailable, using memory only', e);
+        fs = fb.initializeFirestore(app, { localCache: fb.memoryLocalCache() });
+      }
     }
     function toFs(v) { return v === NIP.DELETE ? fb.deleteField() : v; }
 

@@ -79,7 +79,7 @@
   }
   async function safe(fn, okMsg) {
     try { const r = await fn(); if (okMsg) toast(okMsg); return r; }
-    catch (e) { console.error(e); toast('Couldn’t save: ' + (e.code || e.message || e)); }
+    catch (e) { console.error(e); toast(saveMessage(e)); }
   }
   function seasonsList() {
     const y = NIP.seasonStartYear(NIP.currentSeason());
@@ -499,6 +499,15 @@
       </form></div>`;
   }
 
+  /* ---------- Surf Risk Rating helpers ---------- */
+  function srrBand(v) { const n = Number(v); return n ? NIP.SRR_BANDS.find(b => n >= b.min && n <= b.max) : null; }
+  function srrLabel(v) { const b = srrBand(v); return b ? `SRR ${b.min}${b.max < 99 ? '–' + b.max : '+'} ${b.label}` : 'SRR N/A'; }
+  function srrSelect(name, value, withNA) {
+    const cur = srrBand(value);
+    return `<select name="${name}">${withNA ? `<option value="" ${cur ? '' : 'selected'}>N/A (not assessed / no water activity)</option>` : ''}${NIP.SRR_BANDS.map(b =>
+      `<option value="${b.min}" ${cur && cur.min === b.min ? 'selected' : ''}>${b.min}${b.max < 99 ? '–' + b.max : '+'} · ${b.label}${b.ratio ? ` (1:${b.ratio})` : ': do not proceed'}</option>`).join('')}</select>`;
+  }
+
   /* ---------- Notes for parents (first days of the season) ---------- */
   function parentNotesText() {
     const N = NIP.PARENT_NOTES;
@@ -575,7 +584,7 @@
       <a class="btn hide-mobile" href="#/sessions?new=1">+ New session</a></div>
       <a class="fab" href="#/sessions?new=1" aria-label="New session">+</a>
       ${list.length ? `<div class="list">${list.map(s => `<a class="list-item" href="#/session/${s.id}"><span class="avatar" style="background:var(--navy);color:#fff">${esc((s.ageGroup || '').replace('All', '★'))}</span>
-        <div class="grow"><div class="title">${fmtDay(s.date)}${s.title ? ' · ' + esc(s.title) : ''}</div><div class="meta">${esc(s.ageGroup)} · ${(s.present || []).length} present · ${(s.games || []).length} games${s.srr ? ' · SRR ' + esc(s.srr) : ''}</div></div>
+        <div class="grow"><div class="title">${fmtDay(s.date)}${s.title ? ' · ' + esc(s.title) : ''}</div><div class="meta">${esc(s.ageGroup)} · ${(s.present || []).length} present · ${(s.games || []).length} games${s.srr ? ' · ' + esc(srrLabel(s.srr)) : ''}</div></div>
         ${s.date >= today() ? '<span class="badge water">Upcoming</span>' : ''}</a>`).join('')}</div>`
         : `<div class="card empty"><h3>No sessions yet</h3><p>Create one for each age group each week to record attendance and plan games.</p></div>`}`;
   };
@@ -587,7 +596,7 @@
           <label class="field">Date<input type="date" name="date" required value="${esc(s ? s.date : nextSun)}"></label>
           <label class="field">Age group<select name="ageGroup">${['All'].concat(NIP.AGE_GROUPS).map(a => `<option ${(s ? s.ageGroup : (S.evalAg || 'U6')) === a ? 'selected' : ''}>${a}</option>`).join('')}</select></label>
           <label class="field">Title (optional)<input type="text" name="title" value="${esc(s && s.title)}" placeholder="e.g. Week 3: rips & flags"></label>
-          <label class="field">Surf Risk Rating <span class="hint">From the SLSA Operations App, if known</span><input type="number" name="srr" min="1" max="40" value="${esc(s && s.srr)}"></label>
+          <label class="field">Surf Risk Rating <span class="hint">From the SLSA Operations App. Choose N/A if not assessed or there’s no water activity.</span>${srrSelect('srr', s && s.srr, true)}</label>
         </div>
         <label class="field">Notes<textarea name="notes">${esc(s && s.notes)}</textarea></label>
         <div class="btn-row"><button class="btn" type="submit">${s ? 'Save' : 'Create session'}</button><a class="btn secondary" href="${s ? '#/session/' + s.id : '#/sessions'}">Cancel</a>
@@ -719,7 +728,7 @@
           <h2>Ratio calculator</h2>
           <div class="form-grid two">
             <label class="field">Nippers in the water<input type="number" name="n" min="0" value="${v.n}"></label>
-            <label class="field">Surf Risk Rating score<span class="hint">From the Operations App / LIMSOC</span><input type="number" name="srr" min="1" max="40" value="${v.srr}"></label>
+            <label class="field">Surf Risk Rating<span class="hint">From the Operations App / LIMSOC</span>${srrSelect('srr', v.srr, false)}</label>
           </div>
           <label class="field">Activity<select name="activity">
             ${[['regular', 'Nipper water activity'], ['prelim-new', 'Preliminary Evaluation: new members'], ['prelim-ret', 'Preliminary Evaluation: returning members'], ['inclusive', 'Adaptive / inclusive activity']].map(([k, l]) => `<option value="${k}" ${v.activity === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
@@ -969,10 +978,16 @@
     } catch (err) {
       console.error(err);
       if (kind === 'code' || kind === 'setup') { S.authError = authMessage(err, kind); render(); }
-      else toast('Couldn’t save: ' + (err.code || err.message));
+      else toast(saveMessage(err));
     }
   });
 
+  function saveMessage(err) {
+    const c = err.code || '';
+    if (/failed-precondition/.test(c)) return 'Couldn’t save. Close any other Nipper Hub tabs, then reopen the app and try again.';
+    if (/permission-denied/.test(c)) return 'Couldn’t save: please sign out and sign back in with the club code.';
+    return 'Couldn’t save: ' + (c || err.message);
+  }
   function authMessage(err, kind) {
     const c = err.code || '';
     if (/invalid-credential|wrong-password|user-not-found|invalid-email/.test(c)) return 'That club code isn’t right. (Setting Nipper Hub up for the first time? Tap “First-time setup” below first.)';
