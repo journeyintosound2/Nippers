@@ -312,6 +312,72 @@ NIP.GAMES = [
     skills: ['Teamwork', 'Communication', 'Cool-down']
   },
   {
+    id: 'free-swim', name: 'Free Swim', type: 'water', from: 'U6', to: 'U14',
+    time: '15–20 min', players: 'Age group (buddy pairs)', intensity: 'Medium',
+    equipment: ['Flags or buoys to mark the swim area', 'Coloured caps (secured under the chin)', 'Whistle', 'Rescue boards / tubes for water safety'],
+    summary: 'Supervised time in the water to play, swim and practise duck-diving under the waves. It builds surf confidence, and the kids love it.',
+    setup: 'With water safety in place, mark a clear swim area with flags or buoys, inside the depth that suits the group: around waist-deep for U6–U8, chest-deep for older groups that have passed their evaluation. Water safety stays on the outside edge.',
+    steps: [
+      'Brief the group on the boundaries, the come-in signal (e.g. long whistle + both arms waving) and that they must stay with their buddy.',
+      'Head count on the sand, then walk in together.',
+      'Let them swim, play and practise: duck-diving under small waves, dolphin diving, floating on their backs and body-surfing the whitewash.',
+      'Age managers call challenges, e.g. “Who can duck under 5 waves?”, “Starfish float for 10 seconds!”.',
+      'On the signal, everyone comes in. Head count again on the sand.'
+    ],
+    rules: [
+      'Stay inside the flags/buoys and in your depth.',
+      'Stay with your buddy. Check on them every time you come up.',
+      'When the whistle goes, come straight in.',
+      'Raise one arm if you need help.'
+    ],
+    safety: [
+      'Water Safety Supervisor on the beach, with water safety at ratio (1:10 low risk, otherwise 1:5) and 75% of water safety in the water.',
+      'Only nippers who have passed this season’s Preliminary Evaluation, or with closer supervision.',
+      'NSAs can help in low-risk conditions for U8 and under only.',
+      'Head count before AND after. Keep it short if the water is cold.'
+    ],
+    variations: [
+      'Wave count: how many waves can you duck under in 2 minutes?',
+      'Treasure hunt: drop sinking rings in the shallows (see Treasure Dive).',
+      'Buddy tows: one buddy floats, the other gently tows them by the hand (U9+).'
+    ],
+    skills: ['Surf confidence', 'Duck-diving', 'Floating'],
+    prelim: ['Flotation', 'Submersion', 'Propulsion']
+  },
+  {
+    id: 'board-practice', name: 'Board Practice: Catching Waves', type: 'water', from: 'U8', to: 'U14',
+    time: '20–30 min', players: 'Small groups', intensity: 'Medium',
+    equipment: ['Bodyboards (with wrist leash)', 'Nipper boards: the large soft-foam boards (also called softboards or “foamies”)', 'Flags or buoys to mark the area'],
+    summary: 'Catching broken waves (whitewash) on bodyboards and nipper boards. Kids learn to read waves, time their kick or paddle, and ride straight in to the beach.',
+    setup: 'Choose gentle whitewash in a sandbar area with no rip. Mark a board zone with flags/buoys, kept separate from swimmers. Water safety sits out the back and on the sides. Set a one-way traffic rule: walk or paddle out along one side, ride in through the middle.',
+    steps: [
+      'On the sand first: show how to lie on the board, chest on the board for nipper boards (feet at the tail) or chin near the nose for bodyboards, holding the rails.',
+      'Practise on the sand: paddle (arms), kick (bodyboards), then “wave coming, kick hard!”.',
+      'In the water, start knee- to waist-deep. Turn to face the beach, look over your shoulder for a whitewash wave, and as it reaches you push off and kick/paddle hard.',
+      'Ride straight in. Hop off before the board hits the sand, then walk back out the outside lane.',
+      'As they get confident, older nippers can try kneeling or popping up to their feet on the nipper boards.'
+    ],
+    rules: [
+      'One rider per wave in your lane. Look before you go.',
+      'Ride straight to the beach. No zig-zagging into other riders.',
+      'Walk/paddle out on the outside lane only.',
+      'Bodyboards: leash on the wrist at all times.'
+    ],
+    safety: [
+      'Water safety at ratio, with full WSS and risk assessment. Only in small, gentle whitewash.',
+      'If you fall off: cover your head with your arms and let the board go. Never put the board between you and a wave.',
+      'Keep boards well spaced. A loose nipper board in the shore break can hurt.',
+      'Only nippers who have passed this season’s Preliminary Evaluation.'
+    ],
+    variations: [
+      'Longest ride: who can ride closest to the sand?',
+      'Wave count: most waves caught in 10 minutes.',
+      'Swap boards: try a bodyboard, then a nipper board, and compare.',
+      'Next step: paddling races on nipper boards (see Nipper Board Relay).'
+    ],
+    skills: ['Wave reading', 'Board skills', 'Surf confidence']
+  },
+  {
     id: 'run-swim-run', name: 'Run-Swim-Run', type: 'water', from: 'U9', to: 'U14',
     time: '15–20 min', players: 'Heats of 6–10', intensity: 'High',
     equipment: ['Swim cans / buoys', 'Finish flags', 'Coloured caps'],
