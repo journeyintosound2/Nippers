@@ -202,6 +202,7 @@
     shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg>',
     book: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 012-2h13v16H6a2 2 0 00-2 2z"/><path d="M4 19V5"/><path d="M8 7h7M8 11h7"/></svg>',
     life: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M5.6 5.6l3.6 3.6M14.8 14.8l3.6 3.6M18.4 5.6l-3.6 3.6M9.2 14.8l-3.6 3.6"/></svg>',
+    doc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h6"/></svg>',
     team: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="3.5"/><path d="M5 21c.8-4 3.5-6.5 7-6.5s6.2 2.5 7 6.5"/></svg>',
     out: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h4v16h-4"/><path d="M10 17l5-5-5-5M15 12H3"/></svg>',
     logo: '<svg width="40" height="40" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#0B2545"/><rect x="14" y="10" width="4" height="46" rx="2" fill="#fff"/><path d="M18 12h32v14H18z" fill="#E2231A"/><path d="M18 26h32v14H18z" fill="#FFD200"/></svg>'
@@ -801,12 +802,13 @@
 
   /* ---------- More ---------- */
   VIEWS.more = function () {
-    const tile = (href, ic, t, d) => `<a class="card card-link" href="${href}">${ic}<div><strong>${t}</strong><div class="muted" style="font-size:.88rem">${d}</div></div></a>`;
+    const tile = (href, ic, t, d, ext) => `<a class="card card-link" href="${href}"${ext ? ' target="_blank" rel="noopener"' : ''}>${ic}<div><strong>${t}</strong><div class="muted" style="font-size:.88rem">${d}</div></div></a>`;
     return `<div class="page-head"><h1>More</h1></div>
       <div class="more-grid">
         ${tile('#/standards', I.book, 'Sign-off standards', 'Every age group’s evaluation requirements')}
         ${tile('#/safety', I.life, 'Water safety', 'Ratio calculator, uniforms, SRR bands')}
         ${tile('#/helpers', I.shield, 'Nipper Safety Assistants', 'Track NSA skills maintenance')}
+        ${tile('docs/photo-consent-form.pdf', I.doc, 'Photo consent form', 'Printable parent permission-to-publish form (PDF)', true)}
       </div>
       <div style="margin-top:14px">${installCard(true)}</div>
       <div class="card" style="margin-top:14px">
