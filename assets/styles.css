@@ -302,7 +302,8 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }
    Phone / installed-app polish
    ===================================================================== */
 html { -webkit-text-size-adjust: 100%; }
-body { padding-bottom: calc(76px + env(safe-area-inset-bottom)); overscroll-behavior-y: contain; }
+html { overscroll-behavior-y: contain; }
+body { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
 @media (min-width: 900px) { body { padding-bottom: 0; } }
 button, .btn, .chip, .pill-tick, .tick, .bottom-nav a, .list-item, .card-link {
   touch-action: manipulation; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none;
@@ -394,7 +395,9 @@ details.req-ref[open] > summary::after { content: ' ▴'; }
 .parent-notes li + li { margin-top: 5px; }
 
 /* iPhone: date inputs ignore width:100% and push the page sideways */
-html, body { overflow-x: hidden; max-width: 100%; }
+/* 'clip' (not 'hidden') so <body> doesn't become its own scroll box: with
+   overscroll-behavior that trapped mouse-wheel / trackpad scrolling on desktop. */
+html, body { overflow-x: clip; max-width: 100%; }
 input[type=date] {
   -webkit-appearance: none; appearance: none; min-width: 0; max-width: 100%; width: 100%;
   text-align: left; background: #fff; line-height: 1.3;
