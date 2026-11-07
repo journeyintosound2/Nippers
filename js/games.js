@@ -560,5 +560,90 @@ NIP.GAMES = [
     variations: ['Free each other by saying the right first-aid step for bluebottles.'],
     skills: ['First aid awareness', 'Fitness'],
     debrief: 'Bluebottle first aid: rinse with seawater, pick off any tentacles, then use hot water (as hot as is comfortable) or ice for pain.'
+  },
+  {
+    id: 'bullseye-toss', name: 'Bullseye Toss', type: 'sand', from: 'U6', to: 'U14',
+    time: '15–20 min', players: 'Teams of 3–6', intensity: 'Medium',
+    equipment: ['Tennis balls, beanbags or rescue tubes (one per player, or a few per team)', 'Stick or rake to draw rings', 'Flag or cone for the sprint turn', 'Whistle'],
+    summary: 'Teams throw at rings drawn in the sand, worth 10/5/2 points. Each thrower must sprint to a flag and back first, so it’s a good one for keeping warm on cold days.',
+    setup: 'Draw 3–4 rings in the sand about 1 m, 2 m and 3 m across, all with the same centre. Mark a throw line 4–8 m away (closer for U6–U8). Put a flag 10–15 m behind the throw line.',
+    steps: [
+      'Teams line up behind the throw line.',
+      'The first thrower sprints to the flag and back, then throws from behind the line.',
+      'A ball scores the ring it stops in: 10 for the inner ring, 5 for the middle, 2 for the outer. A ball that bounces out scores the ring where it ends up.',
+      'The next teammate goes. Rotate through the team for a set number of rounds, then add up the scores.'
+    ],
+    rules: [
+      'Feet must stay behind the throw line when throwing.',
+      'No throwing until the thrower has completed the sprint.',
+      'A ball on a line scores the higher ring.'
+    ],
+    safety: [
+      'Only throw when the target area is clear. No-one collects balls until the round is over.',
+      'Use soft balls or beanbags for younger groups.'
+    ],
+    variations: [
+      'Bocce style: knock other teams’ balls out of the scoring rings.',
+      'Age adjustments: U6–U8 throw from closer. Older groups throw from further back or with their other hand.',
+      'Swap the sprint for star jumps or high knees to keep waiting players warm.'
+    ],
+    skills: ['Throwing accuracy', 'Teamwork', 'Fitness']
+  },
+  {
+    id: 'noughts-crosses-relay', name: 'Sand Noughts & Crosses Relay', type: 'sand', from: 'U7', to: 'U14',
+    time: '10–15 min', players: '2 teams of 3–6 (per grid)', intensity: 'High',
+    equipment: ['3 coloured bibs or rings per team (different colours for each team)', 'Stick or rope to draw a 3×3 grid', 'Cones for the start line'],
+    summary: 'A relay version of noughts and crosses. Runners sprint out to place or move their team’s markers. The first team to get three in a row wins. It works the body and the brain.',
+    setup: 'Draw a 3×3 grid (squares about 1 m) about 15 m from a start line. Each team lines up behind the start line with its 3 markers. Run several grids at once for bigger groups.',
+    steps: [
+      'On the whistle, the first runner from each team sprints out, places one marker in an empty square, and runs back to tag the next runner.',
+      'Keep going until both teams have all 3 markers on the grid.',
+      'If there’s no winner yet, each next runner moves one of their team’s markers to an empty square.',
+      'The first team to get three in a row (across, down or diagonal) wins.'
+    ],
+    rules: [
+      'One marker per runner per turn.',
+      'The next runner can’t leave until they’ve been tagged.',
+      'Teammates waiting at the start line can call out advice, but only the runner touches the markers.'
+    ],
+    safety: [
+      'Space the grids well apart so teams don’t collide at the grid.',
+      'Check the running area for holes and debris.'
+    ],
+    variations: [
+      'Make the run longer or shorter to suit the age group.',
+      'Use sand-safety pictures or flashcards as markers.',
+      'Play first to three wins, then swap opponents.'
+    ],
+    skills: ['Sprinting', 'Decision making', 'Teamwork']
+  },
+  {
+    id: 'tug-of-war', name: 'Tug of War', type: 'sand', from: 'U6', to: 'U14',
+    time: '10–15 min', players: '2 teams of 4–10', intensity: 'High',
+    equipment: ['Thick rope (no loops or knots tied around hands)', 'Ribbon or tape to mark the middle of the rope', 'Stick to draw a centre line and two pull lines', 'Whistle'],
+    summary: 'Classic tug of war. Two teams pull against each other, and the first team to drag the rope’s middle mark over their own line wins.',
+    setup: 'Draw a centre line in the sand with a line 2 m away on each side. Lay the rope across with its middle mark over the centre line. Make the teams even by size and number.',
+    steps: [
+      'Teams pick up the rope on their own side, holding it with both hands, and stand side-on with feet apart.',
+      'Call “Take the strain”, then blow the whistle.',
+      'Teams pull. The first team to drag the middle mark over their pull line wins.',
+      'Swap ends and play best of three.'
+    ],
+    rules: [
+      'Hold the rope with your hands only. Never wrap it around your hands, wrists or body.',
+      'No sitting or lying on the rope.',
+      'Let go only when the whistle blows to end the round.'
+    ],
+    safety: [
+      'Match teams by size as well as number.',
+      'On the final whistle, everyone puts the rope down slowly rather than letting go suddenly, so nobody falls backwards.',
+      'Pull on soft, flat sand away from hard objects.'
+    ],
+    variations: [
+      'Four-way tug: tie two ropes at the centre and put a team on each end.',
+      'Adults vs nippers to finish the session.',
+      'Pairs version: two nippers pull a rescue tube between them.'
+    ],
+    skills: ['Strength', 'Teamwork']
   }
 ];

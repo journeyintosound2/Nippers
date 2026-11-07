@@ -6,7 +6,7 @@
    - Firestore / Auth traffic is never touched (Firestore has its own
      offline cache and queues changes until you're back in range).
    No version bumping needed when you update the site. */
-const CACHE = 'nipperhub-v2';
+const CACHE = 'nipperhub-v3';
 const SHELL = [
   './', './index.html', './manifest.webmanifest',
   './assets/styles.css', './assets/icon.svg',
